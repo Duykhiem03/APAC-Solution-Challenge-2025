@@ -1,10 +1,11 @@
 import json
-import openai
+from openai import OpenAI
 from datetime import datetime
 from typing import Dict, List, Any
 
 from app.core.config import settings
 from app.core.logging import logger
+
 
 class AIService:
     """Base service for AI model interactions"""
@@ -12,7 +13,7 @@ class AIService:
     def __init__(self):
         self.api_key = settings.OPENAI_API_KEY
         self.model = settings.OPENAI_MODEL
-        openai.api_key = self.api_key
+        self.client = OpenAI(api_key=self.api_key)
         
     async def get_analysis(self, system_prompt: str, user_prompt: str, temperature: float = 0.3) -> Dict:
         """
@@ -27,7 +28,7 @@ class AIService:
             Dict: Parsed JSON response from the model
         """
         try:
-            response = await openai.ChatCompletion.acreate(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
