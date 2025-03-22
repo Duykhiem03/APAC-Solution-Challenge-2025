@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     
     # Service Configuration
     HOST: str = os.getenv("HOST", "127.0.0.1")
-    PORT: int = int(os.getenv("PORT", "8080"))
+    PORT: int = int(os.getenv("AI_MICROSERVICE_PORT", "8080"))
     
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
