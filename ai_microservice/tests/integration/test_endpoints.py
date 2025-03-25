@@ -4,6 +4,8 @@ These tests require a running service instance
 """
 import pytest
 from tests.test_data import SAMPLE_MOVEMENT_REQUEST, SAMPLE_ROUTE_REQUEST
+from httpx import Timeout
+import json
 
 
 @pytest.mark.integration

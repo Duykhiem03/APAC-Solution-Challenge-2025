@@ -16,3 +16,5 @@ requests>=2.28.2
 
 # Async Support
 anyio>=3.6.2
+
+ollama

@@ -3,7 +3,7 @@ Configuration for integration tests
 """
 import os
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, Timeout
 
 
 @pytest.fixture
@@ -15,5 +15,5 @@ def api_base_url():
 @pytest.fixture
 async def api_client(api_base_url):
     """Create a client for integration testing against a running service"""
-    async with AsyncClient(base_url=api_base_url) as client:
+    async with AsyncClient(base_url=api_base_url, timeout=Timeout(timeout=600.0)) as client:
         yield client

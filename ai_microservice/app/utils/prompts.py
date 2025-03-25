@@ -15,7 +15,7 @@ def construct_movement_analysis_prompt(historical_data: List[Dict], current_data
     3. Deviation from usual routes
     4. Any patterns that might indicate safety concerns
     
-    Return your analysis in the following JSON format:
+    Your response must be a single valid JSON object with the following structure:
     {{
         "abnormal_speed": true/false,
         "sudden_stop": true/false,
@@ -25,6 +25,8 @@ def construct_movement_analysis_prompt(historical_data: List[Dict], current_data
         "reasoning": "Your detailed reasoning here",
         "recommended_action": "Suggested next steps if any"
     }}
+    
+    Ensure your response is properly formatted JSON that can be parsed.
     """
 
 def construct_route_safety_prompt(route_points: List[Dict], crime_data: List[Dict], time_of_day: str) -> str:
@@ -42,7 +44,7 @@ def construct_route_safety_prompt(route_points: List[Dict], crime_data: List[Dic
     3. Time-of-day considerations
     4. Recommended alternatives if necessary
     
-    Return your analysis in the following JSON format:
+    Your response must be a single valid JSON object with the following structure:
     {{
         "safety_score": 1-10,
         "risky_segments": [
@@ -57,4 +59,6 @@ def construct_route_safety_prompt(route_points: List[Dict], crime_data: List[Dic
         "recommendation": "Your recommendation here",
         "safe_alternative_available": true/false
     }}
+    
+    Ensure your response is properly formatted JSON that can be parsed.
     """
