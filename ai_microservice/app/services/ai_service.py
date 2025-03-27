@@ -1,29 +1,29 @@
 import json
 from typing import Dict, Optional
 import re
-from ollama import AsyncClient  # Import AsyncClient from ollama package
+import os
+from google import genai
+from google.genai import types
 
 from app.core.config import settings
 from app.core.logging import logger
 from app.utils.llm_parsers import extract_json_from_model_response
 
 class AIService:
-    """Base service for AI model interactions using Ollama"""
+    """Base service for AI model interactions using Gemini API"""
     
     def __init__(self):
-        self.host = settings.OLLAMA_BASE_URL
-        self.model = settings.OLLAMA_MODEL
-        self.timeout = settings.OLLAMA_REQUEST_TIMEOUT
-        # Create an AsyncClient instance
-        self.client = AsyncClient(
-            host=self.host,
-            timeout=self.timeout,
-            headers={"x-app-name": "ChildSafe-AI-Microservice"}
-        )
+        self.model = settings.GEMINI_MODEL
+        # Get API key from environment or settings
+        api_key = settings.GEMINI_API_KEY
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not set in environment or configuration")
+        # Initialize Google Gemini client
+        self.client = genai.Client(api_key=api_key)
         
     async def get_analysis(self, system_prompt: str, user_prompt: str, temperature: float = 0.3) -> Dict:
         """
-        Get analysis from Ollama model using the official Ollama client
+        Get analysis from Gemini model
         
         Args:
             system_prompt: Instructions for the AI model
@@ -34,48 +34,48 @@ class AIService:
             Dict: Parsed JSON response from the model
         """
         try:
-            # Create the messages format that Ollama expects
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
+            # Prepare the prompt with system instruction and user query
+            combined_prompt = f"{system_prompt}\n\n{user_prompt}"
             
-            # Use the AsyncClient to make the request
-            response = await self.client.chat(
-                model=self.model,
-                messages=messages,
-                stream=False,
-                options={
-                    "num_ctx": 4096,  # Context window size
-                    "temperature": temperature,
-                    "num_predict": 800  # Similar to max_tokens
-                }
+            # Create configuration
+            config = types.GenerateContentConfig(
+                temperature=temperature,
+                top_p=0.95,
+                top_k=40,
+                max_output_tokens=1024,
+                safety_settings=[
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_HARASSMENT",
+                        threshold="BLOCK_NONE"
+                    ),
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_HATE_SPEECH",
+                        threshold="BLOCK_NONE"
+                    ),
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold="BLOCK_NONE"
+                    ),
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold="BLOCK_NONE"
+                    )
+                ]
             )
             
-            # Extract content from the response
-            content = response["message"]["content"]
-
-            json_content = extract_json_from_model_response(content)
-            # # Attempt to parse the response as JSON
-            return json_content
+            # Make the request to the model
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=combined_prompt,
+                config=config
+            )
             
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing response as JSON: {str(e)}")
-            # Try to extract JSON from the response if it contains other text
-            try:
-                # Look for JSON-like patterns in the content
-                json_match = re.search(r'(\{.*\})', content, re.DOTALL)
-                if json_match:
-                    return json.loads(json_match.group(1))
-                raise
-            except:
-                # If that fails, return a simplified response
-                logger.error(f"Failed to extract JSON from response: {content[:100]}...")
-                return {
-                    "error": "Failed to parse model response as JSON",
-                    "raw_response": content[:500]  # Include part of the raw response for debugging
-                }
-                
+            # Extract the text content
+            content = response.text
+            
+            # Parse the JSON response
+            return extract_json_from_model_response(content)
+            
         except Exception as e:
-            logger.error(f"Error in AI analysis with Ollama: {str(e)}")
+            logger.error(f"Error in AI analysis with Gemini: {str(e)}")
             raise

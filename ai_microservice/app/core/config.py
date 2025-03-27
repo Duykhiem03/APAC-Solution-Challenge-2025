@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma3:1b")
     OLLAMA_REQUEST_TIMEOUT: float = float(os.getenv("OLLAMA_REQUEST_TIMEOUT", "300.0"))
+
+    # Gemini API Configuration
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY")
     
     # Service Configuration
     HOST: str = os.getenv("HOST", "127.0.0.1")
