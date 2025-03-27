@@ -64,7 +64,7 @@ class AIService:
             )
             
             # Make the request to the model
-            response = self.client.models.generate_content(
+            response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=combined_prompt,
                 config=config
