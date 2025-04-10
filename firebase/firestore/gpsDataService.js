@@ -1,4 +1,4 @@
-const admin = require("../firebaseConfig");
+import { admin } from "../firebaseConfig.js";
 const db = admin.firestore();
 
 class GPSDataService {
@@ -30,11 +30,9 @@ class GPSDataService {
                 .orderBy("timestamp", "desc")
                 .limit(1)
                 .get();
-
             if (snapshot.empty) {
                 return { success: false, message: "No GPS data found." };
             }
-
             return { success: true, data: snapshot.docs[0].data() };
         } catch(error) {
             return { success: false, error: error.message };
@@ -51,11 +49,9 @@ class GPSDataService {
                 .where("userId", "==", userId)
                 .orderBy("timestamp", "desc")
                 .get();
-
             if (snapshot.empty) {
                 return { success: false, message: "No GPS data found." };
             }
-
             const history = snapshot.docs.map(doc => doc.data());
             return { success: true, data: history };
         } catch(error) {
@@ -64,4 +60,4 @@ class GPSDataService {
     }
 }
 
-module.exports = GPSDataService;
+export const { saveGpsData, getLastGpsLocation, getGpsHistory } = GPSDataService;

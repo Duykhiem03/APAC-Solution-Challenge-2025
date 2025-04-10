@@ -1,6 +1,5 @@
-const admin = require("../firebaseConfig");
+import { admin } from "../firebaseConfig.js";
 const db = admin.firestore();
-
 
 /**
  * Save hazard report data for a user
@@ -28,10 +27,7 @@ const saveHazardReport = async (userId, latitude, longitude, type, description, 
  */
 const getHazardReports = async () => {
     const snapshot = await db.collection("hazard_reports").get();
-
     return snapshot.docs.map(doc => doc.data());
-
 }
 
-
-module.exports = { saveHazardReport, getHazardReports }
+export { saveHazardReport, getHazardReports };
