@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ChildSafe</string>
+    <string name="start_now">BẮT ĐẦU NGAY!</string>
+    <string name="complete">Complete</string>
+    
+    <!-- Location related strings -->
+    <string name="gps">GPS</string>
+    <string name="profile">Profile</string>
+    <string name="sos">SOS</string>
+    <string name="navigate">Navigate</string>
+    <string name="current_location">Current Location</string>
+    <string name="you_are_here">You are here</string>
+    <string name="destination_search_hint">Bạn muốn đến đâu?</string>
+    <string name="current_position">Vị trí hiện tại</string>
+    <string name="worth_visiting">Đáng đến đây</string>
+    <string name="saved_locations">Đã lưu</string>
+    <string name="default_city">Hồ Chí Minh</string>
+    <string name="search_results">Kết quả tìm kiếm</string>
+    <string name="no_results_found">Không tìm thấy kết quả</string>
+    <string name="destination">Điểm đến</string>
+    
+    <!-- Place type selector strings -->
+    <string name="search_place_types">Tìm kiếm theo loại địa điểm:</string>
+    <string name="place_type_any">Tất cả</string>
+    <string name="place_type_school">Trường học</string>
+    <string name="place_type_shopping_mall">Trung tâm mua sắm</string>
+    <string name="place_type_restaurant">Nhà hàng</string>
+    <string name="place_type_hospital">Bệnh viện</string>
+    <string name="place_type_park">Công viên</string>
+    
+    <!-- Permission related strings -->
+    <string name="permission_title">Location Permission Required</string>
+    <string name="permission_message">This app needs access to your location to show you on the map and provide navigation.</string>
+    <string name="request_permission">Request Permission</string>
+    <string name="open_settings">Open Settings</string>
+    
+    <!-- Error messages -->
+    <string name="error_location_unavailable">Location unavailable</string>
+    <string name="error_destination_not_found">Destination not found</string>
+    <string name="error_search_failed">Search failed</string>
+</resources>
