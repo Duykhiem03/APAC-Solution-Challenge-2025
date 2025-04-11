@@ -51,7 +51,7 @@ fun ChildSafeNavigation() {
         locationViewModel.updateLocationPermissionStatus(isGranted)
     }
 
-    NavHost(navController = navController, startDestination = NavRoutes.MAIN_MAP) {
+    NavHost(navController = navController, startDestination = NavRoutes.ONBOARDING) {
         composable(NavRoutes.ONBOARDING) {
             OnboardingScreen(onGetStarted = { navController.navigate(NavRoutes.PROFILE_SETTINGS) })
         }
