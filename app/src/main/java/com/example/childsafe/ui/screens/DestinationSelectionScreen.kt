@@ -256,7 +256,7 @@ fun DestinationSelectionScreen(
             text = cityName,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(AppDimensions.spacingMedium),
+                .padding(vertical = AppDimensions.spacingXXLarge, horizontal = AppDimensions.spacingMedium),
             fontSize = AppDimensions.textTitle,
             fontWeight = FontWeight.Bold
         )

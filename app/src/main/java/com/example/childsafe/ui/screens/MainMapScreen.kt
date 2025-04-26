@@ -235,7 +235,7 @@ fun MainMapScreen(
             text = cityName,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(AppDimensions.spacingMedium),
+                .padding(vertical = AppDimensions.spacingXXLarge, horizontal = AppDimensions.spacingMedium),
             fontSize = AppDimensions.textTitle,
             fontWeight = FontWeight.Bold
         )
@@ -272,7 +272,9 @@ fun MainMapScreen(
 
         // Bottom navigation buttons
         BottomNavigationButtons(
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = AppDimensions.spacingXLarge),
             onSOSClick = onSOSClick,
             onNavigateClick = { onNavigateToDestination(Destination()) },
             onProfileClick = onProfileClick

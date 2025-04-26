@@ -10,7 +10,7 @@ object AppColors {
     // Primary colors
     val Primary = Color(0xFF3F51B5)
     val PrimaryVariant = Color(0xFF303F9F)
-    val OnPrimary = Color.White
+    val OnPrimary = Color(0xFFFFFF00)
     
     // Secondary colors
     val Secondary = Color(0xFFFF9800)
