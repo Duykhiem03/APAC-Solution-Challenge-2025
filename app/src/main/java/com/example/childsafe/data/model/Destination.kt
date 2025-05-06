@@ -13,7 +13,8 @@ data class Destination(
     val distance: String = "",
     val coordinates: Coordinates? = null,
     val placeId: String? = null,
-    val latLng: LatLng? = null
+    val latLng: LatLng? = null,
+    val type: String = "",
 )
 
 /**

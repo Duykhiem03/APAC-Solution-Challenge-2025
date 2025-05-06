@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,16 +14,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.childsafe.R
 import com.example.childsafe.data.model.Destination
@@ -58,7 +69,10 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
@@ -216,7 +230,38 @@ fun DestinationSelectionScreen(
         // Map background
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState
+            cameraPositionState = cameraPositionState,
+            properties = MapProperties(
+                isBuildingEnabled = false,
+                isMyLocationEnabled = false,
+                isTrafficEnabled = false,
+                mapStyleOptions = MapStyleOptions(
+                    """
+                    [
+                      {
+                        "featureType": "poi",
+                        "elementType": "labels",
+                        "stylers": [
+                          { "visibility": "off" }
+                        ]
+                      }
+                    ]
+                    """
+                ),
+                mapType = com.google.maps.android.compose.MapType.NORMAL,
+                maxZoomPreference = 21.0f,
+                minZoomPreference = 3.0f
+            ),
+            uiSettings = MapUiSettings(
+                zoomControlsEnabled = false,
+                compassEnabled = false,
+                myLocationButtonEnabled = false,
+                mapToolbarEnabled = false,
+                rotationGesturesEnabled = true,
+                scrollGesturesEnabled = true,
+                tiltGesturesEnabled = true,
+                zoomGesturesEnabled = true
+            )
         ) {
             // Show current location marker if available
             currentLocation?.let { location ->
@@ -224,10 +269,8 @@ fun DestinationSelectionScreen(
                     state = MarkerState(position = location),
                     title = stringResource(R.string.current_location),
                     snippet = stringResource(R.string.you_are_here),
-                    // Use blue color for current location
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)
                 )
-                Timber.d("Showing current location marker at $location")
             }
             
             // Show destination marker if available
@@ -236,14 +279,12 @@ fun DestinationSelectionScreen(
                     state = MarkerState(position = selectedDestinationLatLng!!),
                     title = selectedDestinationName ?: stringResource(R.string.destination),
                     snippet = selectedDestinationAddress,
-                    // Use red color for destination
                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
                 )
-                Timber.d("Showing destination marker at $selectedDestinationLatLng")
             }
         }
 
-        // Show loading indicator if we're waiting for first location
+        // Loading indicator
         if (isWaitingForLocation) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
@@ -251,208 +292,191 @@ fun DestinationSelectionScreen(
             )
         }
 
-        // City name overlay
-        Text(
-            text = cityName,
+        // Status bar at the top
+        Row(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(vertical = AppDimensions.spacingXXLarge, horizontal = AppDimensions.spacingMedium),
-            fontSize = AppDimensions.textTitle,
-            fontWeight = FontWeight.Bold
-        )
-
-        // GPS indicator
-        GPSIndicator(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(AppDimensions.spacingMedium),
-            isActive = isRealLocation,
-            onClick = {
-                if (showBothLocations && selectedDestinationLatLng != null && currentLocation != null) {
-                    // If showing both locations, adjust camera to show both points
-                    try {
-                        moveCameraToShowBothLocations(
-                            cameraPositionState = cameraPositionState,
-                            currentLocation = currentLocation!!,
-                            destinationLocation = selectedDestinationLatLng!!
-                        )
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error adjusting camera from GPS indicator")
-                    }
-                } else {
-                    // Otherwise just center on current location
-                    currentLocation?.let {
-                        cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 15f)
-                    } ?: run {
-                        isWaitingForLocation = true
-                        locationViewModel.getLastKnownLocation()
-                    }
-                }
-            }
-        )
-
-        // Confirm button - positioned at center-top when destination selected
-        if (showConfirmButton && tempDestination != null) {
-            Button(
-                onClick = { 
-                    Timber.d("Confirm destination button clicked")
-                    onDestinationSelected(tempDestination!!) 
-                },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 64.dp) // Positioned below city name
-                    .padding(horizontal = AppDimensions.spacingMedium)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color.White
-                )
-                Spacer(modifier = Modifier.width(AppDimensions.spacingSmall))
-                Text("Confirm Destination")
-            }
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "9:30",
+                color = Color.Black,
+                fontWeight = FontWeight.Medium
+            )
         }
 
-        // Collapsible bottom panel for destination selection
+        // Header with city name
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(top = 40.dp),
+            horizontalAlignment = Alignment.Start
         ) {
-            // Selected destination mini-summary (always visible when destination selected)
-            if (tempDestination != null) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = AppColors.Background,
-                    shadowElevation = 4.dp,
-                    shape = RoundedCornerShape(topStart = AppDimensions.panelCornerRadius, topEnd = AppDimensions.panelCornerRadius)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { isPanelExpanded = !isPanelExpanded }
-                            .padding(AppDimensions.spacingMedium),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Selected Destination:",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = AppDimensions.textMedium
-                            )
-                            Text(
-                                text = selectedDestinationName ?: "",
-                                fontSize = AppDimensions.textMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = selectedDestinationAddress ?: "",
-                                fontSize = AppDimensions.textSmall,
-                                color = AppColors.GpsInactive
-                            )
-                        }
-                        Icon(
-                            imageVector = if (isPanelExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                            contentDescription = if (isPanelExpanded) "Collapse" else "Expand",
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
+            Text(
+                text = cityName,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
             
-            // Expandable panel content
-            AnimatedVisibility(
-                visible = isPanelExpanded,
-                enter = expandVertically(animationSpec = tween(300)),
-                exit = shrinkVertically(animationSpec = tween(300))
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = AppColors.Background,
-                    shadowElevation = if (tempDestination == null) 4.dp else 0.dp,
-                    shape = if (tempDestination == null) 
-                        RoundedCornerShape(topStart = AppDimensions.panelCornerRadius, topEnd = AppDimensions.panelCornerRadius)
-                    else
-                        RoundedCornerShape(0.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(AppDimensions.spacingMedium)
-                    ) {
-                        // Location panel with height constraint to ensure it doesn't take up too much space
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ) {
-                            LocationSelectionPanel(
-                                searchQuery = searchQuery,
-                                onSearchQueryChange = { locationViewModel.updateSearchQuery(it) },
-                                onDestinationSelected = { destination ->
-                                    // Log the destination and extract location data
-                                    Timber.d("Destination selected: ${destination.name}, latLng=${destination.latLng}, coordinates=${destination.coordinates}")
-                                    
-                                    // Handle the destination selection in a coroutine to avoid UI freezes
-                                    coroutineScope.launch {
-                                        try {
-                                            // Extract LatLng from destination
-                                            val destLatLng = when {
-                                                destination.latLng != null -> {
-                                                    Timber.d("Using latLng directly: ${destination.latLng}")
-                                                    destination.latLng
-                                                }
-                                                destination.coordinates != null -> {
-                                                    Timber.d("Converting coordinates: ${destination.coordinates}")
-                                                    destination.coordinates.toLatLng()
-                                                }
-                                                else -> {
-                                                    Timber.e("No location data in destination!")
-                                                    null
-                                                }
-                                            }
-                                            
-                                            // Update marker state if we have location data
-                                            if (destLatLng != null) {
-                                                Timber.d("Setting destination marker at $destLatLng")
-                                                selectedDestinationLatLng = destLatLng
-                                                selectedDestinationName = destination.name
-                                                selectedDestinationAddress = destination.address
-                                                tempDestination = destination
-                                                showBothLocations = currentLocation != null
-                                                showConfirmButton = true
-                                                isPanelExpanded = false
-                                                
-                                                // If we have both locations, adjust camera
-                                                if (showBothLocations && currentLocation != null) {
-                                                    Timber.d("Adjusting camera to show both locations")
-                                                    moveCameraToShowBothLocations(
-                                                        cameraPositionState = cameraPositionState,
-                                                        currentLocation = currentLocation!!,
-                                                        destinationLocation = destLatLng
-                                                    )
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            Timber.e(e, "Error handling destination selection")
-                                        }
-                                    }
-                                },
-                                currentLocation = currentLocation,
-                                locationViewModel = locationViewModel
-                            )
-                        }
+            Text(
+                text = "Consulate General",
+                fontSize = 14.sp,
+                color = Color.DarkGray
+            )
+        }
 
-                        // Bottom navigation buttons always visible
-                        BottomNavigationButtons(
-                            modifier = Modifier,
-                            onSOSClick = onSOSClick,
-                            onNavigateClick = { /* Already in destination screen */ },
-                            onProfileClick = onProfileClick
-                        )
-                    }
-                }
+        // LocationSelectionPanel centered on screen with fixed size
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .align(Alignment.Center),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 500.dp)  // Maximum width for larger screens
+                    .heightIn(min = 300.dp, max = 500.dp)  // Fixed height range
+            ) {
+                LocationSelectionPanel(
+                    searchQuery = searchQuery,
+                    onSearchQueryChange = { locationViewModel.updateSearchQuery(it) },
+                    onDestinationSelected = { destination ->
+                        // Handle destination selection
+                        coroutineScope.launch {
+                            try {
+                                // Extract LatLng from destination
+                                val destLatLng = when {
+                                    destination.latLng != null -> destination.latLng
+                                    destination.coordinates != null -> destination.coordinates.toLatLng()
+                                    else -> null
+                                }
+                                
+                                if (destLatLng != null) {
+                                    selectedDestinationLatLng = destLatLng
+                                    selectedDestinationName = destination.name
+                                    selectedDestinationAddress = destination.address
+                                    tempDestination = destination
+                                    showBothLocations = currentLocation != null
+                                    showConfirmButton = true
+                                    
+                                    // Adjust camera to show both locations
+                                    if (showBothLocations && currentLocation != null) {
+                                        moveCameraToShowBothLocations(
+                                            cameraPositionState = cameraPositionState,
+                                            currentLocation = currentLocation!!,
+                                            destinationLocation = destLatLng
+                                        )
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "Error handling destination selection")
+                            }
+                        }
+                    },
+                    currentLocation = currentLocation,
+                    locationViewModel = locationViewModel,
+                    onNavigateToDestination = if (tempDestination != null) {
+                        { onDestinationSelected(tempDestination!!) }
+                    } else null
+                )
             }
         }
+
+        // Bottom navigation buttons
+        BottomNavigationButtons(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = AppDimensions.spacingXLarge),
+            onSOSClick = onSOSClick,
+            onNavigateClick = { currentLocation?.let {
+                cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 15f)
+            }},
+            onProfileClick = onProfileClick
+        )
+
+        // Bottom navigation buttons
+//        Row(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(horizontal = 32.dp, vertical = 24.dp)
+//                .align(Alignment.BottomCenter),
+//            horizontalArrangement = Arrangement.SpaceBetween,
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            // Yellow location button
+//            FloatingActionButton(
+//                onClick = {
+//                    currentLocation?.let {
+//                        cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 15f)
+//                    }
+//                },
+//                containerColor = Color(0xFFFFD700),
+//                elevation = FloatingActionButtonDefaults.elevation(6.dp)
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.LocationOn,
+//                    contentDescription = "My Location",
+//                    tint = Color.White
+//                )
+//            }
+//
+//            // Red SOS button
+//            FloatingActionButton(
+//                onClick = onSOSClick,
+//                containerColor = Color(0xFFFF4444),
+//                shape = CircleShape,
+//                elevation = FloatingActionButtonDefaults.elevation(6.dp),
+//                modifier = Modifier.size(64.dp)
+//            ) {
+//                Text(
+//                    text = "SOS",
+//                    color = Color.White,
+//                    fontWeight = FontWeight.Bold,
+//                    fontSize = 16.sp
+//                )
+//            }
+//
+//            // Blue navigation button
+//            FloatingActionButton(
+//                onClick = { /* Toggle navigation */ },
+//                containerColor = Color(0xFF2196F3),
+//                elevation = FloatingActionButtonDefaults.elevation(6.dp)
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.Navigation,
+//                    contentDescription = "Navigate",
+//                    tint = Color.White
+//                )
+//            }
+//        }
+
+        // Confirm button when destination is selected
+//        if (showConfirmButton && tempDestination != null) {
+//            Button(
+//                onClick = { onDestinationSelected(tempDestination!!) },
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(horizontal = 32.dp, vertical = 100.dp)
+//                    .align(Alignment.BottomCenter),
+//                shape = RoundedCornerShape(24.dp),
+//                colors = ButtonDefaults.buttonColors(
+//                    containerColor = Color(0xFF2196F3)
+//                )
+//            ) {
+//                Text(
+//                    text = "Xác nhận vị trí",
+//                    color = Color.White,
+//                    fontWeight = FontWeight.Bold,
+//                    modifier = Modifier.padding(vertical = 8.dp)
+//                )
+//            }
+//        }
     }
 }
 

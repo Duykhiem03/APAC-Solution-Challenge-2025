@@ -289,7 +289,7 @@ fun MainMapScreen(
                     destinationName = selectedDestination.name,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 80.dp) // Add space above the navigation buttons
+                        .padding(bottom = 120.dp) // Add space above the navigation buttons
                         .padding(horizontal = 16.dp)
                 )
             }

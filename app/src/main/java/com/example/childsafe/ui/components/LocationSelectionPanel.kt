@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,6 +55,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import com.example.childsafe.R
 import com.example.childsafe.data.model.Destination
 import com.example.childsafe.data.repository.PlacesRepository.PlaceType
@@ -76,272 +79,246 @@ fun LocationSelectionPanel(
     onSearchQueryChange: (String) -> Unit,
     onDestinationSelected: (Destination) -> Unit,
     currentLocation: LatLng?,
-    locationViewModel: LocationViewModel
+    locationViewModel: LocationViewModel,
+    onNavigateToDestination: (() -> Unit)? = null,
 ) {
-    // Collect search results from the ViewModel - already sorted by distance
+    // Collect search results from the ViewModel
     val searchResults by locationViewModel.searchResults.collectAsState()
     val isLoading by locationViewModel.isLoading.collectAsState()
     val selectedPlaceType by locationViewModel.selectedPlaceType.collectAsState()
     
-    // Get the screen height for maximum expansion
-    val configuration = LocalConfiguration.current
-    val screenHeight = with(LocalDensity.current) { 
-        configuration.screenHeightDp.dp 
-    }
-    
-    // State for panel height control 
-    val minHeight = 400.dp  // Smaller minimum height to make dragging more noticeable
-    val maxHeight = screenHeight - 50.dp  // Maximum height that still shows a bit of the app bar
-    
-    // Remember the previous height between recompositions
-    var currentHeight by remember { mutableStateOf(minHeight) }
-    var isDragging by remember { mutableStateOf(false) }
-    
-    // Use spring animation for more natural feel with faster response
-    val animatedHeight by animateDpAsState(
-        targetValue = currentHeight,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "Height Animation"
-    )
-    
-    // Density for converting pixels to dp
-    val density = LocalDensity.current
-    
-    // Enhanced draggable state with more responsive updates
-    val draggableState = rememberDraggableState { delta ->
-        // Convert px delta to dp using saved density reference
-        val dragDp = with(density) { delta.toDp() }
-        // Negative delta means dragging up (increase height)
-        val newHeight = (currentHeight - dragDp).coerceIn(minHeight, maxHeight)
-        if (currentHeight != newHeight) {
-            currentHeight = newHeight
-            Timber.d("Panel resized: new height=$currentHeight")
-        }
-    }
-    
-    // Add a LaunchedEffect to reset the draggable state when recomposed
-    LaunchedEffect(Unit) {
-        // Start at minimum height when first launched
-        currentHeight = minHeight
+    // Add effect to log when search results change
+    LaunchedEffect(searchResults) {
+        Timber.d("Search results updated: ${searchResults.size} items found")
     }
 
+    // Create a fixed-size panel with cream background as shown in the image
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(animatedHeight)
             .background(
-                color = AppColors.Background,
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                color = Color(0xFFFEF7EC), // Light cream/beige background from image
+                shape = RoundedCornerShape(24.dp)
             )
-            .shadow(
-                elevation = if (isDragging) 8.dp else 4.dp,
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-            )
+            .padding(vertical = 16.dp, horizontal = 16.dp)
     ) {
-        // Resizer handle at the top of the panel - make it more prominent
-        Box(
+        // Current location row with blue radio button
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp) // Increased touch target
-                .draggable(
-                    state = draggableState,
-                    orientation = Orientation.Vertical,
-                    onDragStarted = { isDragging = true },
-                    onDragStopped = { isDragging = false }
-                ),
-            contentAlignment = Alignment.Center
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // More visible draggable handle indicator
-            Box(
-                modifier = Modifier
-                    .size(width = 80.dp, height = 6.dp) // Wider and thicker
-                    .clip(CircleShape)
-                    .background(
-                        if (isDragging) 
-                            AppColors.NavigateBlue.copy(alpha = 0.9f)
-                        else 
-                            AppColors.GpsInactive.copy(alpha = 0.8f)
-                    )
+            androidx.compose.material3.RadioButton(
+                selected = true,
+                onClick = { /* Select current location */ },
+                colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                    selectedColor = Color(0xFF2196F3) // Blue color for radio button
+                )
+            )
+            
+            Spacer(modifier = Modifier.width(8.dp))
+            
+            Text(
+                text = "Vị trí hiện tại", // "Current location" in Vietnamese
+                fontWeight = FontWeight.Medium,
+                fontSize = 16.sp,
+                color = Color.Black
             )
         }
+
+        // Search field with red border and search icon
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            placeholder = { 
+                Text(
+                    text = "Bạn muốn đến đâu?", // "Where do you want to go?" in Vietnamese
+                    color = Color.Gray
+                ) 
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = Color.Red
+                )
+            },
+            shape = RoundedCornerShape(24.dp),
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Red,
+                unfocusedBorderColor = Color.Red.copy(alpha = 0.5f),
+                cursorColor = Color.Red
+            ),
+            singleLine = true
+        )
         
-        // Rest of the panel content
+        // Add place type selector for filtering
+        LocationPlaceTypeSelector(
+            selectedType = selectedPlaceType,
+            onTypeSelected = { locationViewModel.updateSelectedPlaceType(it) },
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        
+        // Divider
+        Divider(
+            color = Color.LightGray.copy(alpha = 0.5f),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        
+        // Location items - scrollable list
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(horizontal = 16.dp) // Add padding for better appearance
+                .verticalScroll(rememberScrollState())
         ) {
-            // Fixed top section with current location and search field
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(AppColors.Background)
-            ) {
-                // Current location option
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(
-                        selected = true,
-                        onClick = { /* Select current location */ }
-                    )
-                    Icon(
-                        imageVector = Icons.Default.MyLocation,
-                        contentDescription = stringResource(R.string.current_location),
-                        tint = if (currentLocation != null) AppColors.NavigateBlue else AppColors.GpsInactive
-                    )
-                    Spacer(modifier = Modifier.width(AppDimensions.spacingSmall))
-                    Text(text = stringResource(R.string.current_position))
-                }
-
-                // Destination search field
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChange,
+            // Show loading indicator when searching
+            if (isLoading) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = AppDimensions.spacingSmall),
-                    placeholder = { Text(stringResource(R.string.destination_search_hint)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search"
-                        )
-                    },
-                    shape = RoundedCornerShape(AppDimensions.cardCornerRadius)
+                        .height(100.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF2196F3),
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+            } 
+            // Show search results if query is not empty
+            else if (searchQuery.isNotEmpty() && searchResults.isNotEmpty()) {
+                // Display header for search results
+                Text(
+                    text = "Kết quả tìm kiếm", // "Search Results" in Vietnamese
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                
+                // Display dynamic search results
+                searchResults.forEach { destination ->
+                    LocationItem(
+                        destination = destination,
+                        onDestinationSelected = onDestinationSelected
+                    )
+                    Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                }
+            }
+            // Show message if no results found
+            else if (searchQuery.isNotEmpty() && !isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Không tìm thấy kết quả", // "No results found" in Vietnamese
+                        color = Color.Gray,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+            // Show nearby locations when not searching
+            else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Đang gần đây", // "Nearby" in Vietnamese
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    
+                    Text(
+                        text = "5/6 km",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+
+                // Default locations when not searching
+                LocationItem(
+                    destination = Destination(
+                        id = 1,
+                        name = "Bệnh viện Đa khoa Thành Phố Hồ Chí Minh",
+                        address = "Quận 3, Thành phố Hồ Chí Minh • Cách 3,6 km",
+                        distance = "3,6 km",
+                        type = "hospital"
+                    ),
+                    onDestinationSelected = onDestinationSelected
+                )
+                Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                
+                LocationItem(
+                    destination = Destination(
+                        id = 2,
+                        name = "Trường Đại học Sài Gòn - Cơ Sở 1",
+                        address = "Quận 3, Thành phố Hồ Chí Minh • Cách 2,8 km",
+                        distance = "2,8 km",
+                        type = "university"
+                    ),
+                    onDestinationSelected = onDestinationSelected
+                )
+                Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                
+                LocationItem(
+                    destination = Destination(
+                        id = 3,
+                        name = "Trường THPT Nguyễn Thị Minh Khai",
+                        address = "Quận 3, Thành phố Hồ Chí Minh • Cách 2,4 km",
+                        distance = "2,4 km",
+                        type = "school"
+                    ),
+                    onDestinationSelected = onDestinationSelected
+                )
+                Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                
+                LocationItem(
+                    destination = Destination(
+                        id = 4,
+                        name = "43 Ngô Thời Nhiệm",
+                        address = "Quận 3, Thành phố Hồ Chí Minh • Cách 1,5 km",
+                        distance = "1,5 km",
+                        type = "address"
+                    ),
+                    onDestinationSelected = onDestinationSelected
                 )
             }
-            
-            // Light divider to separate fixed and scrollable sections
-            Divider(color = AppColors.GpsInactive.copy(alpha = 0.2f))
-            
-            // Scrollable content area (search results or suggestions)
-            Box(
+        }
+        
+        // Add confirm location button if navigation callback is provided
+        if (onNavigateToDestination != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            androidx.compose.material3.Button(
+                onClick = { onNavigateToDestination() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f) // Take remaining height
+                    .height(48.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2196F3)
+                )
             ) {
-                if (searchQuery.isNotBlank()) {
-                    // Search mode - show place type selector and search results
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        // Place type selector
-                        LocationPlaceTypeSelector(
-                            selectedType = selectedPlaceType,
-                            onTypeSelected = { placeType ->
-                                locationViewModel.updateSelectedPlaceType(placeType)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = AppDimensions.spacingSmall)
-                        )
-
-                        // Show loading indicator if searching
-                        if (isLoading) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(AppDimensions.spacingMedium),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(color = AppColors.NavigateBlue)
-                            }
-                        }
-
-                        // Display search results if available - results are already sorted by the ViewModel
-                        if (searchResults.isNotEmpty()) {
-                            Text(
-                                text = stringResource(R.string.search_results),
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(
-                                    top = AppDimensions.spacingMedium,
-                                    bottom = AppDimensions.spacingSmall
-                                )
-                            )
-                            
-                            // Display search results in a scrollable list
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                searchResults.forEach { destination ->
-                                    DestinationItem(
-                                        destination = destination,
-                                        onDestinationSelected = onDestinationSelected
-                                    )
-                                    Spacer(modifier = Modifier.height(AppDimensions.spacingSmall))
-                                }
-                            }
-                        } else if (!isLoading) {
-                            // No results found
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(AppDimensions.spacingMedium),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.no_results_found),
-                                    color = AppColors.GpsInactive
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    // Not searching - show suggested locations
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        // Toggle options when not searching
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = AppDimensions.spacingSmall),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.worth_visiting),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(AppDimensions.cardCornerRadius))
-                                    .clickable { /* Toggle */ }
-                                    .padding(AppDimensions.spacingSmall),
-                                color = AppColors.NavigateBlue,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = AppDimensions.textMedium
-                            )
-                            Text(
-                                text = stringResource(R.string.saved_locations),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(AppDimensions.cardCornerRadius))
-                                    .clickable { /* Toggle */ }
-                                    .padding(AppDimensions.spacingSmall),
-                                fontSize = AppDimensions.textMedium
-                            )
-                        }
-
-                        // Suggested locations
-                        SuggestedLocations(
-                            onDestinationSelected = onDestinationSelected,
-                            currentLocation = currentLocation
-                        )
-                    }
-                }
+                Text(
+                    text = "Xác nhận vị trí", // "Confirm location" in Vietnamese
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
 }
 
-/**
- * A composable that displays selectable place type options for the location panel
- */
 @Composable
 fun LocationPlaceTypeSelector(
     selectedType: PlaceType,
@@ -476,6 +453,59 @@ fun DestinationItem(
                 text = destination.distance,
                 fontSize = AppDimensions.textSmall,
                 color = AppColors.GpsInactive
+            )
+        }
+    }
+}
+
+@Composable
+fun LocationItem(
+    destination: Destination,
+    onDestinationSelected: (Destination) -> Unit
+) {
+    // Get the appropriate icon color based on location type
+    val iconTint = when(destination.type) {
+        "hospital" -> Color(0xFF4CAF50) // Green for hospital
+        "school", "university" -> Color(0xFF2196F3) // Blue for educational institutions
+        "address" -> Color(0xFFFF5722) // Orange for addresses
+        else -> Color(0xFF2196F3) // Default blue
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onDestinationSelected(destination) }
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        // Location icon with type-based color
+        Icon(
+            imageVector = Icons.Default.LocationOn,
+            contentDescription = "Location",
+            tint = iconTint,
+            modifier = Modifier
+                .padding(top = 2.dp, end = 12.dp)
+                .size(22.dp)
+        )
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = destination.name,
+                fontWeight = FontWeight.Medium,
+                fontSize = 16.sp,
+                color = Color(0xFF333333),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            Spacer(modifier = Modifier.height(2.dp))
+            
+            Text(
+                text = destination.address,
+                fontSize = 14.sp,
+                color = Color(0xFF757575),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
