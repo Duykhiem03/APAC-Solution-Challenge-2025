@@ -7,6 +7,9 @@ plugins {
     id("com.google.dagger.hilt.android")
     // Add kapt plugin for annotation processing
     id("kotlin-kapt")
+    // Add Google services plugin for Firebase
+    id("com.google.gms.google-services")
+
 }
 
 android {
@@ -97,6 +100,14 @@ dependencies {
 
     // Jsoup for HTML parsing (used in route instructions)
     implementation("org.jsoup:jsoup:1.17.1")
+
+    // Firebase dependencies
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-messaging")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
