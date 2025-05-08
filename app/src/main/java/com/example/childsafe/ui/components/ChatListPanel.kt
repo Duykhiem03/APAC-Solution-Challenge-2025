@@ -1,6 +1,7 @@
 package com.example.childsafe.ui.components
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -175,6 +176,7 @@ fun ChatListPanel(
                     Button(
                         onClick = { selectedTab = 0 },
                         shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, Color.Black),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (selectedTab == 0) AppColors.TabActiveBlue else AppColors.TabInactiveBlue
                         ),
@@ -192,6 +194,7 @@ fun ChatListPanel(
                     Button(
                         onClick = { selectedTab = 1 },
                         shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, Color.Black),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (selectedTab == 1) AppColors.TabActiveBlue else AppColors.TabInactiveBlue
                         ),
@@ -209,6 +212,7 @@ fun ChatListPanel(
                     Button(
                         onClick = { selectedTab = 2 },
                         shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, Color.Black),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (selectedTab == 2) AppColors.TabActiveBlue else AppColors.TabInactiveBlue
                         ),

@@ -1,6 +1,7 @@
 package com.example.childsafe.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.example.childsafe.R
 import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.AppDimensions
@@ -81,6 +83,7 @@ fun BottomNavigationButtons(
                 .size(AppDimensions.navigationButtonSize)
                 .clip(CircleShape)
                 .background(AppColors.ProfileYellow)
+                .border(1.dp, AppColors.OnSecondary, CircleShape)
                 .clickable { onProfileClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -97,6 +100,7 @@ fun BottomNavigationButtons(
                 .size(AppDimensions.navigationButtonSize)
                 .clip(CircleShape)
                 .background(AppColors.SosRed)
+                .border(1.dp, AppColors.OnSecondary, CircleShape)
                 .clickable { onSOSClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -113,6 +117,7 @@ fun BottomNavigationButtons(
                 .size(AppDimensions.navigationButtonSize)
                 .clip(CircleShape)
                 .background(AppColors.Background)
+                .border(1.dp, AppColors.OnSecondary, CircleShape)
                 .clickable { onNavigateClick() },
             contentAlignment = Alignment.Center
         ) {

@@ -54,6 +54,6 @@ object AppColors {
     val TabInactiveBlue = Color(0xFFBCE9FF)
     val AvatarRed = Color(0xFFD32F2F)
     val UnreadBadgeRed = Color(0xFFFF0000)
-    val SearchBarBorder = Color(0xFF89CFF0)
+    val SearchBarBorder = Color.Black
     val TextGray = Color.Gray
 }

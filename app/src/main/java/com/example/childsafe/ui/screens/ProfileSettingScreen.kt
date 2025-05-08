@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.ChildSafeTheme
 
 @Composable
@@ -123,6 +124,7 @@ fun ProfileSettingScreen(onComplete: () -> Unit) {
 
         Button(
             onClick = onComplete,
+            border = BorderStroke(1.dp, Color.Black),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
