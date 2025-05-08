@@ -14,9 +14,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,22 +24,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.UserChats
-import com.example.childsafe.ui.components.toDp
 import com.example.childsafe.ui.theme.AppColors
-import com.example.childsafe.ui.theme.AppDimensions
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.max
 
 /**
  * A draggable panel that displays a list of chat conversations
@@ -84,6 +81,12 @@ fun ChatListPanel(
         // Constrain the height between min and max values
         currentHeight = newHeight.coerceIn(minHeight, maxHeight)
     }
+
+    // Tab selection state
+    var selectedTab by remember { mutableStateOf(0) }
+    
+    // Search query state
+    var searchQuery by remember { mutableStateOf("") }
     
     Box(
         modifier = modifier
@@ -94,7 +97,7 @@ fun ChatListPanel(
         Card(
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = AppColors.PeachBackground, // Using AppColors instead of hardcoded color
             ),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 8.dp
@@ -113,7 +116,7 @@ fun ChatListPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            color = AppColors.PeachBackground, // Using AppColors
                             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
                         )
                         .draggable(
@@ -126,11 +129,12 @@ fun ChatListPanel(
                                 currentHeight = newHeight.coerceIn(minHeight, maxHeight)
                             }
                         }
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         // Close button
                         IconButton(onClick = onClose) {
@@ -140,17 +144,10 @@ fun ChatListPanel(
                             )
                         }
                         
-                        Text(
-                            text = "Conversations",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
+                        Spacer(modifier = Modifier.weight(1f))
                         
                         // Indicator of panel resizing capability
-                        Box(
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        ) {
+                        Box {
                             if (currentHeight < maxHeight - 40.dp) {
                                 Icon(
                                     imageVector = Icons.Default.KeyboardArrowUp,
@@ -166,36 +163,162 @@ fun ChatListPanel(
                     }
                 }
                 
-                // Content
-                Box(
+                // Tab buttons
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.Center),
-                            color = AppColors.Primary
-                        )
-                    } else if (conversations.isEmpty()) {
+                    // Tab for "Trò chuyện" (Chat)
+                    Button(
+                        onClick = { selectedTab = 0 },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == 0) AppColors.TabActiveBlue else AppColors.TabInactiveBlue
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                    ) {
                         Text(
-                            text = "No conversations yet",
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(16.dp),
-                            style = MaterialTheme.typography.bodyLarge
+                            text = "Trò chuyện",
+                            color = if (selectedTab == 0) Color.White else Color.Black
                         )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize()
+                    }
+                    
+                    // Tab for "Bạn bè" (Friends)
+                    Button(
+                        onClick = { selectedTab = 1 },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == 1) AppColors.TabActiveBlue else AppColors.TabInactiveBlue
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Text(
+                            text = "Bạn bè",
+                            color = if (selectedTab == 1) Color.White else Color.Black
+                        )
+                    }
+                    
+                    // Tab for "Kết bạn" (Make friends)
+                    Button(
+                        onClick = { selectedTab = 2 },
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == 2) AppColors.TabActiveBlue else AppColors.TabInactiveBlue
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp)
+                    ) {
+                        Text(
+                            text = "Kết bạn",
+                            color = if (selectedTab == 2) Color.White else Color.Black
+                        )
+                    }
+                }
+                
+                // Search bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
+                    placeholder = { Text("Tìm kiếm") },
+                    leadingIcon = { 
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    },
+                    shape = RoundedCornerShape(50),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AppColors.SearchBarBorder,
+                        unfocusedBorderColor = AppColors.TextGray.copy(alpha = 0.5f)
+                    )
+                )
+                
+                // Content based on selected tab
+                when (selectedTab) {
+                    0 -> {
+                        // Chat tab content
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
                         ) {
-                            items(conversations) { conversation ->
-                                ConversationItem(
-                                    conversation = conversation,
-                                    unreadCount = userChats?.unreadCountForConversation(conversation.id) ?: 0,
-                                    onClick = { onConversationSelected(conversation.id) }
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = AppColors.Primary
                                 )
+                            } else if (conversations.isEmpty()) {
+                                Text(
+                                    text = "No conversations yet",
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .padding(16.dp),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(conversations) { conversation ->
+                                        ConversationItem(
+                                            conversation = conversation,
+                                            unreadCount = userChats?.unreadCountForConversation(conversation.id) ?: 0,
+                                            onClick = { onConversationSelected(conversation.id) }
+                                        )
+                                    }
+                                }
                             }
+                        }
+                    }
+                    1 -> {
+                        // Friends tab - you can customize this for your needs
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Friends list will appear here")
+                        }
+                    }
+                    2 -> {
+                        // Friend requests tab - you can customize this for your needs
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Friend requests will appear here")
+                        }
+                    }
+                }
+                
+                // Sample contacts display - shown only when there are no real conversations
+                // and we're on the first tab
+                if (selectedTab == 0 && conversations.isEmpty() && !isLoading) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
+                        // Sample data based on the image
+                        items(sampleContacts) { contact ->
+                            SampleContactItem(
+                                name = contact.first,
+                                chatNumber = contact.second,
+                                onClick = { /* Would navigate to chat but using sample data */ }
+                            )
                         }
                     }
                 }
@@ -211,8 +334,66 @@ private fun Float.toDp(density: androidx.compose.ui.unit.Density): Dp {
     return with(density) { this@toDp.dp }
 }
 
+// Sample contact data to match the image
+private val sampleContacts = listOf(
+    "Mẹ" to "Chat #01",
+    "Bố" to "Chat #02",
+    "Chị hai" to "Chat #03",
+    "Bạn thân" to "Chat #04"
+)
+
 /**
- * Single conversation item in the chat list
+ * Sample contact item to match the design in the image
+ */
+@Composable
+fun SampleContactItem(
+    name: String,
+    chatNumber: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Avatar placeholder with background color matching the image
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(AppColors.AvatarRed),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = name.first().toString(),
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Column(
+            modifier = Modifier
+                .padding(start = 16.dp)
+        ) {
+            Text(
+                text = name,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            
+            Text(
+                text = chatNumber,
+                color = AppColors.TextGray,
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+/**
+ * Single conversation item in the chat list - updated to match the image style
  */
 @Composable
 fun ConversationItem(
@@ -228,93 +409,67 @@ fun ConversationItem(
     } else {
         // For one-on-one chats, we'll use "User" as a placeholder
         // In a real app, you would get the other participant's name from a UserRepository
-        // by looking up the non-current user ID from conversation.participants
         "User"
     }
     
     // Get first letter for avatar
     val avatarInitial = displayName.firstOrNull()?.toString() ?: "?"
     
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        ),
-        shape = MaterialTheme.shapes.medium
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Avatar with the style matching the image
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(AppColors.AvatarRed),
+            contentAlignment = Alignment.Center
         ) {
-            // Avatar (placeholder circle for now)
+            Text(
+                text = avatarInitial,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Column(
+            modifier = Modifier
+                .padding(start = 16.dp)
+                .weight(1f)
+        ) {
+            Text(
+                text = displayName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+            
+            Text(
+                text = conversation.lastMessage?.text ?: "No messages yet",
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = AppColors.TextGray,
+                fontSize = 14.sp
+            )
+        }
+        
+        if (unreadCount > 0) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(24.dp)
                     .clip(CircleShape)
-                    .background(AppColors.Secondary),
+                    .background(AppColors.UnreadBadgeRed),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = avatarInitial,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White
+                    text = unreadCount.toString(),
+                    color = Color.White,
+                    fontSize = 12.sp
                 )
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            // Conversation details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (unreadCount > 0) FontWeight.Bold else FontWeight.Normal
-                )
-                
-                Text(
-                    text = conversation.lastMessage?.text ?: "No messages yet",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            // Right side - time and unread count
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                conversation.lastMessage?.timestamp?.let { timestamp ->
-                    Text(
-                        text = dateFormat.format(timestamp.toDate()),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                if (unreadCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 4.dp)
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(AppColors.Primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = unreadCount.coerceAtMost(99).toString(),
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                }
             }
         }
     }

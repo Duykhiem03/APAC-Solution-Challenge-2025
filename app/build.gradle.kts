@@ -66,7 +66,7 @@ dependencies {
     // Google Play Services - standardized versions
     implementation("com.google.android.gms:play-services-base:18.2.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("com.google.android.gms:play-services-location:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     
     // Google Maps Compose
     implementation("com.google.maps.android:maps-compose:2.15.0")

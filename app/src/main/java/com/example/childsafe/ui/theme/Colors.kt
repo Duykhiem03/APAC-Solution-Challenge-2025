@@ -47,4 +47,13 @@ object AppColors {
     val Purple40 = Color(0xFF6650a4)
     val PurpleGrey40 = Color(0xFF625b71)
     val Pink40 = Color(0xFF7D5260)
+    
+    // ChatListPanel colors
+    val PeachBackground = Color(0xFFFFF6ED)
+    val TabActiveBlue = Color(0xFF89CFF0) 
+    val TabInactiveBlue = Color(0xFFBCE9FF)
+    val AvatarRed = Color(0xFFD32F2F)
+    val UnreadBadgeRed = Color(0xFFFF0000)
+    val SearchBarBorder = Color(0xFF89CFF0)
+    val TextGray = Color.Gray
 }
