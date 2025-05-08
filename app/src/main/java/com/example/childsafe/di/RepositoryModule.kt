@@ -6,8 +6,12 @@ import com.example.childsafe.data.repository.StorageRepositoryImpl
 import com.example.childsafe.domain.repository.ChatRepository
 import com.example.childsafe.domain.repository.SosRepository
 import com.example.childsafe.domain.repository.StorageRepository
+import com.example.childsafe.services.FirebaseMessagingManager
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -45,4 +49,18 @@ abstract class RepositoryModule {
     abstract fun bindSosRepository(
         sosRepositoryImpl: SosRepositoryImpl
     ): SosRepository
+
+    companion object {
+        /**
+         * Provides FirebaseMessagingManager instance
+         */
+        @Provides
+        @Singleton
+        fun provideFirebaseMessagingManager(
+            auth: FirebaseAuth,
+            firestore: FirebaseFirestore
+        ): FirebaseMessagingManager {
+            return FirebaseMessagingManager(auth, firestore)
+        }
+    }
 }
