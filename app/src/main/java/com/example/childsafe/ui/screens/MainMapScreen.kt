@@ -57,7 +57,7 @@ import timber.log.Timber
  * @param onNavigateToDestination Callback when user wants to navigate to a destination
  * @param onSOSClick Callback for when the SOS button is clicked
  * @param onProfileClick Callback for when the profile button is clicked
- * @param onChatSelected Callback for when a chat is selected
+ * @param onConversationSelected Callback for when a chat conversation is selected
  * @param locationViewModel ViewModel for location data
  * @param navigationViewModel ViewModel for handling route calculations
  * @param chatViewModel ViewModel for chat data
@@ -68,7 +68,7 @@ fun MainMapScreen(
     onNavigateToDestination: (Destination) -> Unit,
     onSOSClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onChatSelected: (String) -> Unit = {},
+    onConversationSelected: (String) -> Unit = {},
     locationViewModel: LocationViewModel = hiltViewModel(),
     navigationViewModel: NavigationViewModel = hiltViewModel(),
     chatViewModel: ChatViewModel = hiltViewModel()
@@ -328,7 +328,7 @@ fun MainMapScreen(
                 conversations = conversations,
                 userChats = userChats,
                 onConversationSelected = { conversationId ->
-                    onChatSelected(conversationId)
+                    onConversationSelected(conversationId)
                     showChatPanel = false // Hide panel after selection
                 },
                 onClose = { showChatPanel = false },

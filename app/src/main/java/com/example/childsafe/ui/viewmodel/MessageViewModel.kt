@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.security.Timestamp
 import javax.inject.Inject
 
 /**
@@ -44,7 +45,12 @@ class MessageViewModel @Inject constructor(
         val isAttachmentMenuVisible: Boolean = false,
         val isSendingMessage: Boolean = false,
         val isRecordingAudio: Boolean = false,
-        val hasLocationPermission: Boolean = false
+        val hasLocationPermission: Boolean = false,
+        val isOtherUserTyping: Boolean = false,
+        val isOtherUserOnline: Boolean = false,
+        val isLoadingOlderMessages: Boolean = false,
+        val hasMoreMessagesToLoad: Boolean = true,
+        val lastSeenTimestamp: Timestamp? = null
     )
 
     // MutableStateFlow to hold the current UI state
@@ -292,6 +298,107 @@ class MessageViewModel @Inject constructor(
      */
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    /**
+     * Loads older messages in the conversation
+     * This method implements pagination for the chat history
+     */
+    fun loadOlderMessages() {
+        val conversationId = _conversationId.value ?: return
+        if (_uiState.value.isLoadingOlderMessages || !_uiState.value.hasMoreMessagesToLoad) return
+        
+        _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
+        
+        viewModelScope.launch {
+            try {
+                // Get the oldest message timestamp as a reference point
+                val oldestMessageTimestamp = _uiState.value.messages.minByOrNull { 
+                    it.timestamp.seconds * 1000 + it.timestamp.nanoseconds / 1000000 
+                }?.timestamp
+                
+                // If we have messages, load messages before the oldest one
+                if (oldestMessageTimestamp != null) {
+                    val olderMessages = chatRepository.getOlderMessages(conversationId, oldestMessageTimestamp, 20)
+                    
+                    if (olderMessages.isEmpty()) {
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingOlderMessages = false,
+                            hasMoreMessagesToLoad = false
+                        )
+                    } else {
+                        // Combine older messages with current messages, maintaining order
+                        val combinedMessages = olderMessages + _uiState.value.messages
+                        _uiState.value = _uiState.value.copy(
+                            isLoadingOlderMessages = false,
+                            messages = combinedMessages
+                        )
+                    }
+                } else {
+                    // If no messages yet, just mark as not loading
+                    _uiState.value = _uiState.value.copy(isLoadingOlderMessages = false)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingOlderMessages = false,
+                    errorMessage = "Failed to load more messages: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+    
+    /**
+     * Updates the typing status and sends it to the server
+     * Called when the user is typing a message
+     */
+    fun updateTypingStatus(isTyping: Boolean) {
+        val conversationId = _conversationId.value ?: return
+        
+        viewModelScope.launch {
+            try {
+                chatRepository.setTypingStatus(conversationId, isTyping)
+            } catch (e: Exception) {
+                // Just log the error, don't update UI
+                // Timber.e("Error updating typing status: ${e.message}")
+            }
+        }
+    }
+    
+    /**
+     * Starts observing the typing and online status of other users in the conversation
+     */
+    fun startObservingUserStatus() {
+        val conversationId = _conversationId.value ?: return
+        
+        viewModelScope.launch {
+            try {
+                chatRepository.observeTypingStatus(conversationId).collect { typingUsers ->
+                    // Filter out current user
+                    val currentUserId = chatRepository.getCurrentUserId() ?: return@collect
+                    val isOtherUserTyping = typingUsers.any { it != currentUserId }
+                    
+                    _uiState.value = _uiState.value.copy(isOtherUserTyping = isOtherUserTyping)
+                }
+            } catch (e: Exception) {
+                // Just log the error
+                // Timber.e("Error observing typing status: ${e.message}")
+            }
+        }
+        
+        viewModelScope.launch {
+            try {
+                chatRepository.observeOnlineStatus(conversationId).collect { onlineUsers ->
+                    // Filter out current user
+                    val currentUserId = chatRepository.getCurrentUserId() ?: return@collect
+                    val isOtherUserOnline = onlineUsers.any { it != currentUserId }
+                    
+                    _uiState.value = _uiState.value.copy(isOtherUserOnline = isOtherUserOnline)
+                }
+            } catch (e: Exception) {
+                // Just log the error
+                // Timber.e("Error observing online status: ${e.message}")
+            }
+        }
     }
 
     /**

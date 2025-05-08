@@ -38,11 +38,6 @@ class ChatRepositoryImpl @Inject constructor(
     
     // Mock user ID for development testing when auth fails
     private val mockUserId = "mock_user_123456"
-    
-    // Helper function to get current user ID or fallback to mock
-    private fun getCurrentUserId(): String? {
-        return auth.currentUser?.uid ?: mockUserId
-    }
 
     /**
      * Observes conversations for the current user as a Flow
@@ -539,6 +534,171 @@ class ChatRepositoryImpl @Inject constructor(
             userChatsCollection.document(currentUserId).update(
                 "conversations", updatedConversations
             ).await()
+        }
+    }
+
+    /**
+     * Gets the current user ID
+     */
+    override suspend fun getCurrentUserId(): String? {
+        return auth.currentUser?.uid ?: mockUserId
+    }
+    
+    /**
+     * Gets older messages before a specified timestamp
+     */
+    override suspend fun getOlderMessages(
+        conversationId: String,
+        beforeTimestamp: Timestamp,
+        limit: Int
+    ): List<Message> {
+        return try {
+            val messages = messagesCollection
+                .whereEqualTo("conversationId", conversationId)
+                .whereLessThan("timestamp", beforeTimestamp)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(limit.toLong())
+                .get()
+                .await()
+            
+            // Return messages in ascending order (oldest first)
+            messages.documents
+                .mapNotNull { it.toObject(Message::class.java)?.copy(id = it.id) }
+                .sortedBy { it.timestamp.seconds * 1000 + it.timestamp.nanoseconds / 1000000 }
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting older messages")
+            emptyList()
+        }
+    }
+    
+    /**
+     * Sets the typing status for the current user in a conversation
+     */
+    override suspend fun setTypingStatus(conversationId: String, isTyping: Boolean) {
+        val currentUserId = getCurrentUserId() ?: return
+        
+        try {
+            // Collection for typing status
+            val typingCollection = firestore.collection("typing")
+            val typingDocId = "${conversationId}_${currentUserId}"
+            
+            if (isTyping) {
+                // Add or update typing status with automatic expiration (via TTL)
+                typingCollection.document(typingDocId).set(
+                    hashMapOf(
+                        "conversationId" to conversationId,
+                        "userId" to currentUserId,
+                        "timestamp" to FieldValue.serverTimestamp(),
+                        "expiresAt" to Timestamp(System.currentTimeMillis() / 1000 + 10, 0) // 10 seconds TTL
+                    )
+                ).await()
+            } else {
+                // Remove typing status
+                typingCollection.document(typingDocId).delete().await()
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error updating typing status")
+        }
+    }
+    
+    /**
+     * Observes typing status of users in a conversation
+     */
+    override suspend fun observeTypingStatus(conversationId: String): Flow<List<String>> = callbackFlow {
+        val typingCollection = firestore.collection("typing")
+        
+        val listenerRegistration = typingCollection
+            .whereEqualTo("conversationId", conversationId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    // Send empty list on error instead of closing
+                    Timber.e(error, "Error observing typing status")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
+                // Current timestamp for filtering expired statuses
+                val now = System.currentTimeMillis() / 1000
+                
+                // Extract user IDs of users who are typing
+                val typingUsers = snapshot?.documents
+                    ?.filter { doc -> 
+                        // Only include non-expired typing status
+                        val expiresAt = doc.getTimestamp("expiresAt")
+                        expiresAt != null && expiresAt.seconds > now
+                    }
+                    ?.mapNotNull { it.getString("userId") }
+                    ?: emptyList()
+                
+                trySend(typingUsers)
+            }
+        
+        // This MUST be the final statement in callbackFlow
+        awaitClose { 
+            listenerRegistration.remove() 
+        }
+    }
+    
+    /**
+     * Observes online status of users in a conversation
+     */
+    override suspend fun observeOnlineStatus(conversationId: String): Flow<List<String>> = callbackFlow {
+        // Get conversation to get participants
+        val conversationDoc = try {
+            conversationsCollection.document(conversationId).get().await()
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting conversation for online status")
+            // Send empty list on error instead of closing
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
+        
+        if (!conversationDoc.exists()) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
+        
+        val conversation = conversationDoc.toObject(Conversation::class.java)
+        if (conversation == null) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
+        
+        // Collection for online status
+        val onlineCollection = firestore.collection("userStatus")
+        
+        // We'll observe all participants' online status
+        val listenerRegistration = onlineCollection
+            .whereIn("userId", conversation.participants)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    // Send empty list on error instead of closing
+                    Timber.e(error, "Error observing online status")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
+                // Current timestamp for filtering recently online users (last 2 minutes)
+                val twoMinutesAgo = System.currentTimeMillis() / 1000 - 120
+                
+                // Extract user IDs of users who are online
+                val onlineUsers = snapshot?.documents
+                    ?.filter { doc -> 
+                        val lastActiveTimestamp = doc.getTimestamp("lastActive")
+                        lastActiveTimestamp != null && lastActiveTimestamp.seconds > twoMinutesAgo
+                    }
+                    ?.mapNotNull { it.getString("userId") }
+                    ?: emptyList()
+                
+                trySend(onlineUsers)
+            }
+        
+        // This MUST be the final statement in callbackFlow
+        awaitClose { 
+            listenerRegistration.remove() 
         }
     }
 }

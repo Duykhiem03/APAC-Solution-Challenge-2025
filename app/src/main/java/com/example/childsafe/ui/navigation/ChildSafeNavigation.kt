@@ -7,15 +7,19 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.childsafe.OnboardingScreen
 import com.example.childsafe.ProfileSettingScreen
 import com.example.childsafe.data.model.Destination
 import com.example.childsafe.ui.components.LocationPermissionHandler
+import com.example.childsafe.ui.screens.ChatScreen
 import com.example.childsafe.ui.screens.DestinationSelectionScreen
 import com.example.childsafe.ui.screens.MainMapScreen
+import com.example.childsafe.ui.viewmodel.ChatViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
 import timber.log.Timber
 
@@ -29,6 +33,10 @@ object NavRoutes {
     const val MAIN_MAP = "main_map"
     const val DESTINATION_SELECTION = "destination_selection"
     const val SOS_SCREEN = "sos"
+    const val CHAT_SCREEN = "chat/{conversationId}"
+
+    // Helper function to create the chat route with a specific conversation ID
+    fun chatRoute(conversationId: String) = "chat/$conversationId"
 }
 
 /**
@@ -73,6 +81,10 @@ fun ChildSafeNavigation() {
                 onProfileClick = {
                     navController.navigate(NavRoutes.PROFILE_SETTINGS)
                 },
+                // Handle navigation to chat when a conversation is selected
+                onConversationSelected = { conversationId ->
+                    navController.navigate(NavRoutes.chatRoute(conversationId))
+                },
                 // Pass locationViewModel explicitly to ensure consistency
                 locationViewModel = locationViewModel
             )
@@ -103,6 +115,20 @@ fun ChildSafeNavigation() {
         composable(NavRoutes.SOS_SCREEN) {
             // SOSScreen will be implemented separately
             // SOSScreen(onBack = { navController.popBackStack() })
+        }
+        
+        // Chat screen with conversationId parameter
+        composable(
+            route = NavRoutes.CHAT_SCREEN,
+            arguments = listOf(
+                navArgument("conversationId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            ChatScreen(
+                conversationId = conversationId,
+                onBackClick = { navController.popBackStack() }
+            )
         }
     }
 }

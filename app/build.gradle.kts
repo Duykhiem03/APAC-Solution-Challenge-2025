@@ -61,7 +61,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.9")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
-
+    
+    // Material compose with pull-to-refresh support
+    implementation("androidx.compose.material:material:1.7.8")
 
     // Google Play Services - standardized versions
     implementation("com.google.android.gms:play-services-base:18.2.0")

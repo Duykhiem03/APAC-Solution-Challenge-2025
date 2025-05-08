@@ -86,4 +86,44 @@ interface ChatRepository {
      * @param conversationId ID of the conversation to delete
      */
     suspend fun deleteConversation(conversationId: String)
+    
+    /**
+     * Gets the current user ID
+     * @return The current user ID or null if not logged in
+     */
+    suspend fun getCurrentUserId(): String?
+    
+    /**
+     * Gets older messages before a specified timestamp
+     * @param conversationId ID of the conversation
+     * @param beforeTimestamp Load messages before this timestamp
+     * @param limit Maximum number of messages to load
+     * @return List of older messages
+     */
+    suspend fun getOlderMessages(
+        conversationId: String, 
+        beforeTimestamp: com.google.firebase.Timestamp, 
+        limit: Int = 20
+    ): List<Message>
+    
+    /**
+     * Sets the typing status for the current user in a conversation
+     * @param conversationId ID of the conversation
+     * @param isTyping Whether the user is currently typing
+     */
+    suspend fun setTypingStatus(conversationId: String, isTyping: Boolean)
+    
+    /**
+     * Observes typing status of users in a conversation
+     * @param conversationId ID of the conversation
+     * @return Flow of user IDs who are currently typing
+     */
+    suspend fun observeTypingStatus(conversationId: String): Flow<List<String>>
+    
+    /**
+     * Observes online status of users in a conversation
+     * @param conversationId ID of the conversation
+     * @return Flow of user IDs who are currently online
+     */
+    suspend fun observeOnlineStatus(conversationId: String): Flow<List<String>>
 }
