@@ -39,6 +39,16 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkRequest
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.platform.LocalContext
+import com.example.childsafe.data.model.MessageStatus
 
 /**
  * Screen for displaying and interacting with an individual chat conversation
@@ -69,6 +79,8 @@ fun ChatScreen(
     val isOtherUserTyping = uiState.isOtherUserTyping
     val isOtherUserOnline = uiState.isOtherUserOnline
     val isLoadingOlderMessages = uiState.isLoadingOlderMessages
+    val isNetworkAvailable = uiState.isNetworkAvailable
+    val failedMessages = uiState.failedMessages
     
     // Start observing user status (typing/online)
     LaunchedEffect(conversationId) {
@@ -83,6 +95,26 @@ fun ChatScreen(
             kotlinx.coroutines.delay(3000)
             messageViewModel.clearError()
         }
+    }
+    
+    // Monitor network connectivity 
+    val connectivityManager = LocalContext.current.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    
+    // Update network status
+    LaunchedEffect(Unit) {
+        val networkCallback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                messageViewModel.updateNetworkStatus(true)
+            }
+            
+            override fun onLost(network: Network) {
+                messageViewModel.updateNetworkStatus(false)
+            }
+        }
+        
+        // Register the callback
+        val networkRequest = NetworkRequest.Builder().build()
+        connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
     }
     
     // Scroll state for message list
@@ -111,60 +143,68 @@ fun ChatScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Contact avatar
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(AppColors.AvatarRed),
-                            contentAlignment = Alignment.Center
+            // Network status bar (displayed when offline)
+            Column {
+                NetworkStatusBar(
+                    isNetworkAvailable = isNetworkAvailable,
+                    onRetryClick = { messageViewModel.resendFailedMessages() }
+                )
+                
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = contactName.first().toString(),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
+                            // Contact avatar
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(AppColors.AvatarRed),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = contactName.first().toString(),
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            // Contact info
+                            Column {
+                                Text(
+                                    text = contactName,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Online",
+                                    fontSize = 12.sp,
+                                    color = AppColors.GpsActive
+                                )
+                            }
                         }
-                        
-                        Spacer(modifier = Modifier.width(12.dp))
-                        
-                        // Contact info
-                        Column {
-                            Text(
-                                text = contactName,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "Online",
-                                fontSize = 12.sp,
-                                color = AppColors.GpsActive
-                            )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        // Call button
+                        IconButton(onClick = { /* Handle call */ }) {
+                            Icon(Icons.Default.Call, contentDescription = "Call")
+                        }
+                        // Video call button
+                        IconButton(onClick = { /* Handle video call */ }) {
+                            Icon(Icons.Default.VideoCall, contentDescription = "Video Call")
                         }
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    // Call button
-                    IconButton(onClick = { /* Handle call */ }) {
-                        Icon(Icons.Default.Call, contentDescription = "Call")
-                    }
-                    // Video call button
-                    IconButton(onClick = { /* Handle video call */ }) {
-                        Icon(Icons.Default.VideoCall, contentDescription = "Video Call")
-                    }
-                }
-            )
+                )
+            }
         },
         bottomBar = {
             ChatInputBar(
@@ -217,7 +257,8 @@ fun ChatScreen(
                     listState = listState,
                     isRefreshing = isLoadingOlderMessages,
                     onRefresh = { messageViewModel.loadOlderMessages() },
-                    isOtherUserTyping = isOtherUserTyping
+                    isOtherUserTyping = isOtherUserTyping,
+                    onRetryMessage = { messageViewModel.retryMessage(it) }
                 )
             }
 
@@ -329,29 +370,65 @@ fun ChatInputBar(
 }
 
 /**
- * Individual message item in chat
+ * Individual message item in chat with delivery status and retry option
  */
 @Composable
-fun MessageItem(message: Message) {
+fun MessageItem(
+    message: Message,
+    onRetryClick: (String) -> Unit = {}
+) {
     // Get current user ID from Firebase Auth
     val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown_user"
     
     val isSentByMe = message.sender == currentUserId
     val messageAlignment = if (isSentByMe) Alignment.End else Alignment.Start
-    val messageColor = if (isSentByMe) Color(0xFFBCE9FF) else Color.White
-    val textColor = if (isSentByMe) Color.White else Color.Black
+    val messageColor = if (isSentByMe) AppColors.Primary.copy(alpha = 0.2f) else Color.White
+    val textColor = Color.Black
     val dateFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     
-    // Rest of the implementation remains the same
+    // Format for delivery status
+    val isFailedMessage = message.deliveryStatus == MessageStatus.FAILED
+    
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = messageAlignment
     ) {
+        // Show retry option for failed messages (only for sender's messages)
+        if (isFailedMessage && isSentByMe) {
+            Row(
+                modifier = Modifier
+                    .padding(bottom = 4.dp)
+                    .align(messageAlignment),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Failed to send",
+                    fontSize = 12.sp,
+                    color = Color.Red
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                FilledTonalButton(
+                    onClick = { onRetryClick(message.id) },
+                    modifier = Modifier.height(24.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "Retry",
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+        
         // Message bubble
         Box(
             modifier = Modifier
                 .widthIn(max = 260.dp)
-                .border(1.dp, Color.Black, RoundedCornerShape(16.dp))
+                .border(
+                    width = 1.dp,
+                    color = if (isFailedMessage) Color.Red.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(16.dp)
+                )
                 .background(
                     color = messageColor,
                     shape = RoundedCornerShape(
@@ -382,13 +459,71 @@ fun MessageItem(message: Message) {
             }
         }
         
-        // Timestamp
-        Text(
-            text = dateFormat.format(message.timestamp.toDate()),
-            fontSize = 12.sp,
-            color = AppColors.TextGray,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
-        )
+        // Row for timestamp and delivery status
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = if (isSentByMe) Arrangement.End else Arrangement.Start,
+            modifier = Modifier
+                .padding(top = 2.dp, bottom = 8.dp)
+                .padding(horizontal = 4.dp)
+                .align(messageAlignment)
+        ) {
+            // Timestamp
+            Text(
+                text = dateFormat.format(message.timestamp.toDate()),
+                fontSize = 10.sp,
+                color = AppColors.TextGray
+            )
+            
+            // If it's my message, show delivery status 
+            if (isSentByMe) {
+                Spacer(modifier = Modifier.width(4.dp))
+                
+                // Status icon
+                when (message.deliveryStatus) {
+                    MessageStatus.SENDING -> {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = "Sending",
+                            tint = AppColors.TextGray,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    MessageStatus.SENT -> {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Sent",
+                            tint = AppColors.TextGray,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    MessageStatus.DELIVERED -> {
+                        Icon(
+                            imageVector = Icons.Default.DoneAll,
+                            contentDescription = "Delivered",
+                            tint = AppColors.TextGray,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    MessageStatus.READ -> {
+                        Icon(
+                            imageVector = Icons.Default.DoneAll,
+                            contentDescription = "Read",
+                            tint = AppColors.Primary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    MessageStatus.FAILED -> {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Failed",
+                            tint = Color.Red,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -403,7 +538,8 @@ fun PullToRefreshChat(
     listState: LazyListState,
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
-    isOtherUserTyping: Boolean
+    isOtherUserTyping: Boolean,
+    onRetryMessage: (String) -> Unit = {}
 ) {
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
@@ -441,7 +577,10 @@ fun PullToRefreshChat(
             
             // Message items
             items(messages) { message ->
-                MessageItem(message = message)
+                MessageItem(
+                    message = message,
+                    onRetryClick = onRetryMessage
+                )
             }
             
             // Add space at the bottom for typing indicator
@@ -924,6 +1063,55 @@ fun ChatWithTypingPreview() {
                 Text(text = "Mom is typing...", fontSize = 14.sp)
                 Spacer(modifier = Modifier.width(8.dp))
                 TypingDots()
+            }
+        }
+    }
+}
+
+/**
+ * Network status bar that shows offline/online status
+ */
+@Composable
+fun NetworkStatusBar(
+    isNetworkAvailable: Boolean,
+    onRetryClick: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = !isNetworkAvailable,
+        enter = slideInVertically() + expandVertically(),
+        exit = slideOutVertically() + shrinkVertically()
+    ) {
+        Surface(
+            color = if (isNetworkAvailable) AppColors.GpsActive else Color.Red.copy(alpha = 0.8f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.SignalWifiOff,
+                        contentDescription = "Network Status",
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "You're offline. Messages will be sent when you're back online.",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(
+                    onClick = onRetryClick,
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                ) {
+                    Text("Retry")
+                }
             }
         }
     }

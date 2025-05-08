@@ -50,7 +50,9 @@ class MessageViewModel @Inject constructor(
         val isOtherUserOnline: Boolean = false,
         val isLoadingOlderMessages: Boolean = false,
         val hasMoreMessagesToLoad: Boolean = true,
-        val lastSeenTimestamp: Timestamp? = null
+        val lastSeenTimestamp: Timestamp? = null,
+        val isNetworkAvailable: Boolean = true,
+        val failedMessages: List<String> = emptyList() // IDs of messages that failed to send
     )
 
     // MutableStateFlow to hold the current UI state
@@ -397,6 +399,180 @@ class MessageViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Just log the error
                 // Timber.e("Error observing online status: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Updates the network connectivity status
+     * @param isAvailable Whether the network is available
+     */
+    fun updateNetworkStatus(isAvailable: Boolean) {
+        val previousState = _uiState.value.isNetworkAvailable
+        _uiState.value = _uiState.value.copy(isNetworkAvailable = isAvailable)
+        
+        // If network is restored, try to resend failed messages
+        if (!previousState && isAvailable) {
+            resendFailedMessages()
+        }
+    }
+    
+    /**
+     * Adds a message ID to the failed messages list
+     * @param messageId ID of the failed message
+     */
+    private fun addFailedMessage(messageId: String) {
+        val currentFailedMessages = _uiState.value.failedMessages.toMutableList()
+        if (!currentFailedMessages.contains(messageId)) {
+            currentFailedMessages.add(messageId)
+            _uiState.value = _uiState.value.copy(failedMessages = currentFailedMessages)
+        }
+    }
+    
+    /**
+     * Removes a message ID from the failed messages list
+     * @param messageId ID of the message to remove
+     */
+    private fun removeFailedMessage(messageId: String) {
+        val currentFailedMessages = _uiState.value.failedMessages.toMutableList()
+        if (currentFailedMessages.contains(messageId)) {
+            currentFailedMessages.remove(messageId)
+            _uiState.value = _uiState.value.copy(failedMessages = currentFailedMessages)
+        }
+    }
+    
+    /**
+     * Attempts to resend all failed messages
+     */
+    fun resendFailedMessages() {
+        val conversationId = _conversationId.value ?: return
+        val failedMessageIds = _uiState.value.failedMessages.toList()
+        
+        if (failedMessageIds.isEmpty()) return
+        
+        viewModelScope.launch {
+            for (messageId in failedMessageIds) {
+                try {
+                    // Find the message in the current list
+                    val message = _uiState.value.messages.find { it.id == messageId } ?: continue
+                    
+                    // Resend based on message type
+                    when (message.messageType) {
+                        MessageType.TEXT -> {
+                            chatRepository.sendMessage(
+                                conversationId, 
+                                message.text, 
+                                MessageType.TEXT
+                            )
+                        }
+                        MessageType.IMAGE -> {
+                            if (message.mediaUrl.isNotEmpty()) {
+                                chatRepository.sendMessage(
+                                    conversationId,
+                                    "Image",
+                                    MessageType.IMAGE,
+                                    mediaUrl = message.mediaUrl
+                                )
+                            }
+                        }
+                        MessageType.LOCATION -> {
+                            message.location?.let {
+                                chatRepository.sendMessage(
+                                    conversationId,
+                                    "Location",
+                                    MessageType.LOCATION,
+                                    location = it
+                                )
+                            }
+                        }
+                        MessageType.AUDIO -> {
+                            if (message.mediaUrl.isNotEmpty()) {
+                                chatRepository.sendMessage(
+                                    conversationId,
+                                    "Audio message",
+                                    MessageType.AUDIO,
+                                    mediaUrl = message.mediaUrl
+                                )
+                            }
+                        }
+                    }
+                    
+                    // If successful, remove from failed messages list
+                    removeFailedMessage(messageId)
+                } catch (e: Exception) {
+                    // If still failing, keep in the list
+                    // Timber.e("Failed to resend message $messageId: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Retries sending a specific failed message
+     * @param messageId ID of the message to retry
+     */
+    fun retryMessage(messageId: String) {
+        val failedMessageIds = _uiState.value.failedMessages
+        if (messageId in failedMessageIds) {
+            viewModelScope.launch {
+                try {
+                    // Find the message in the current list
+                    val message = _uiState.value.messages.find { it.id == messageId } ?: return@launch
+                    val conversationId = _conversationId.value ?: return@launch
+                    
+                    // Set sending state
+                    _uiState.value = _uiState.value.copy(isSendingMessage = true)
+                    
+                    // Resend based on message type
+                    when (message.messageType) {
+                        MessageType.TEXT -> {
+                            chatRepository.sendMessage(
+                                conversationId, 
+                                message.text, 
+                                MessageType.TEXT
+                            )
+                        }
+                        MessageType.IMAGE -> {
+                            if (message.mediaUrl.isNotEmpty()) {
+                                chatRepository.sendMessage(
+                                    conversationId,
+                                    "Image",
+                                    MessageType.IMAGE,
+                                    mediaUrl = message.mediaUrl
+                                )
+                            }
+                        }
+                        MessageType.LOCATION -> {
+                            message.location?.let {
+                                chatRepository.sendMessage(
+                                    conversationId,
+                                    "Location",
+                                    MessageType.LOCATION,
+                                    location = it
+                                )
+                            }
+                        }
+                        MessageType.AUDIO -> {
+                            if (message.mediaUrl.isNotEmpty()) {
+                                chatRepository.sendMessage(
+                                    conversationId,
+                                    "Audio message",
+                                    MessageType.AUDIO,
+                                    mediaUrl = message.mediaUrl
+                                )
+                            }
+                        }
+                    }
+                    
+                    // If successful, remove from failed messages list
+                    removeFailedMessage(messageId)
+                    _uiState.value = _uiState.value.copy(isSendingMessage = false)
+                } catch (e: Exception) {
+                    _uiState.value = _uiState.value.copy(
+                        isSendingMessage = false,
+                        errorMessage = "Failed to resend message: ${e.localizedMessage}"
+                    )
+                }
             }
         }
     }

@@ -34,6 +34,26 @@ data class LastMessage(
 )
 
 /**
+ * Enum for message delivery status
+ */
+enum class MessageStatus {
+    @PropertyName("sending")
+    SENDING,
+    
+    @PropertyName("sent")
+    SENT,
+    
+    @PropertyName("delivered")
+    DELIVERED,
+    
+    @PropertyName("read")
+    READ,
+    
+    @PropertyName("failed")
+    FAILED
+}
+
+/**
  * Represents a single message in a conversation
  */
 data class Message(
@@ -46,7 +66,9 @@ data class Message(
     val readBy: List<String> = emptyList(),
     val messageType: MessageType = MessageType.TEXT,
     val mediaUrl: String = "",
-    val location: MessageLocation? = null
+    val location: MessageLocation? = null,
+    val deliveryStatus: MessageStatus = MessageStatus.SENT,
+    val errorMessage: String = "" // For failed messages
 )
 
 /**
