@@ -63,10 +63,13 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
 
-    // Google Maps
-    implementation("com.google.maps.android:maps-compose:2.15.0")
+    // Google Play Services - standardized versions
+    implementation("com.google.android.gms:play-services-base:18.2.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-    // Google Maps Utils (for PolyUtil)
+    implementation("com.google.android.gms:play-services-location:18.2.0")
+    
+    // Google Maps Compose
+    implementation("com.google.maps.android:maps-compose:2.15.0")
     implementation("com.google.maps.android:android-maps-utils:3.5.3")
     
     // Google Places
@@ -75,9 +78,6 @@ dependencies {
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-
-    // Location services
-    implementation("com.google.android.gms:play-services-location:21.1.0")
 
     // Permissions handling
     implementation("com.google.accompanist:accompanist-permissions:0.30.1")

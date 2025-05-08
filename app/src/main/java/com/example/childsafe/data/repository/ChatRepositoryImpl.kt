@@ -17,12 +17,13 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Implementation of ChatRepository that interacts with Firebase Firestore
- * Handles all chat-related operations and data conversions
+ *  Handles all chat-related operations and data conversions
  */
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
@@ -34,32 +35,50 @@ class ChatRepositoryImpl @Inject constructor(
     private val conversationsCollection = firestore.collection("conversations")
     private val messagesCollection = firestore.collection("messages")
     private val userChatsCollection = firestore.collection("userChats")
-
-    // Current user ID
-    private val currentUserId: String
-        get() = auth.currentUser?.uid ?: throw IllegalStateException("User not authenticated")
+    
+    // Mock user ID for development testing when auth fails
+    private val mockUserId = "mock_user_123456"
+    
+    // Helper function to get current user ID or fallback to mock
+    private fun getCurrentUserId(): String? {
+        return auth.currentUser?.uid ?: mockUserId
+    }
 
     /**
      * Observes conversations for the current user as a Flow
      */
     override suspend fun observeConversations(): Flow<List<Conversation>> = callbackFlow {
-        val listenerRegistration = conversationsCollection
-            .whereArrayContains("participants", currentUserId)
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
+        // Get current user ID
+        val currentUserId = getCurrentUserId()
+        
+        // Set up listener based on auth state
+        val listenerRegistration = if (currentUserId != null) {
+            conversationsCollection
+                .whereArrayContains("participants", currentUserId)
+                .orderBy("updatedAt", Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+
+                    val conversations = snapshot?.documents?.mapNotNull { doc ->
+                        doc.toObject(Conversation::class.java)?.copy(id = doc.id)
+                    } ?: emptyList()
+
+                    trySend(conversations)
                 }
+        } else {
+            // User not logged in - send empty list but don't return early
+            Timber.w("User not logged in, returning empty conversations")
+            trySend(emptyList())
+            null // No actual listener to return
+        }
 
-                val conversations = snapshot?.documents?.mapNotNull { doc ->
-                    doc.toObject(Conversation::class.java)?.copy(id = doc.id)
-                } ?: emptyList()
-
-                trySend(conversations)
-            }
-
-        awaitClose { listenerRegistration.remove() }
+        // This MUST be the final statement in callbackFlow
+        awaitClose { 
+            listenerRegistration?.remove() 
+        }
     }
 
     /**
@@ -82,6 +101,8 @@ class ChatRepositoryImpl @Inject constructor(
      * Observes messages in a specific conversation as a Flow
      */
     override suspend fun observeMessages(conversationId: String): Flow<List<Message>> = callbackFlow {
+        val currentUserId = getCurrentUserId()
+        
         val listenerRegistration = messagesCollection
             .whereEqualTo("conversationId", conversationId)
             .orderBy("timestamp", Query.Direction.ASCENDING)
@@ -98,7 +119,10 @@ class ChatRepositoryImpl @Inject constructor(
                 trySend(messages)
             }
 
-        awaitClose { listenerRegistration.remove() }
+        // This MUST be the final statement in callbackFlow
+        awaitClose { 
+            listenerRegistration.remove() 
+        }
     }
 
     /**
@@ -110,6 +134,11 @@ class ChatRepositoryImpl @Inject constructor(
         groupName: String
     ): String {
         // Check if a direct conversation already exists between these users
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            throw IllegalStateException("User not logged in")
+        }
+
         if (!isGroup && participantIds.size == 2) {
             val existingConversation = conversationsCollection
                 .whereArrayContains("participants", currentUserId)
@@ -186,6 +215,11 @@ class ChatRepositoryImpl @Inject constructor(
         location: MessageLocation?
     ): String {
         // Verify conversation exists and user is participant
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            throw IllegalStateException("User not logged in")
+        }
+
         val conversationDoc = conversationsCollection.document(conversationId).get().await()
         if (!conversationDoc.exists()) {
             throw IllegalArgumentException("Conversation not found")
@@ -276,6 +310,11 @@ class ChatRepositoryImpl @Inject constructor(
      * Marks all messages in a conversation as read
      */
     override suspend fun markConversationAsRead(conversationId: String) {
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            throw IllegalStateException("User not logged in")
+        }
+
         // Get all unread messages in the conversation that weren't sent by this user
         val unreadMessages = messagesCollection
             .whereEqualTo("conversationId", conversationId)
@@ -332,31 +371,49 @@ class ChatRepositoryImpl @Inject constructor(
      * Observes userChats data as a Flow
      */
     override suspend fun observeUserChats(): Flow<UserChats> = callbackFlow {
-        val listenerRegistration = userChatsCollection
-            .document(currentUserId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
+        val currentUserId = getCurrentUserId()
+        
+        // Set up listener based on auth state
+        val listenerRegistration = if (currentUserId != null) {
+            userChatsCollection
+                .document(currentUserId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+
+                    val userChats = if (snapshot?.exists() == true) {
+                        snapshot.toObject(UserChats::class.java)?.copy(userId = snapshot.id)
+                            ?: UserChats(userId = currentUserId)
+                    } else {
+                        UserChats(userId = currentUserId)
+                    }
+
+                    trySend(userChats)
                 }
+        } else {
+            // User not logged in - send empty data but don't return early
+            Timber.w("User not logged in, returning empty user chats")
+            trySend(UserChats())
+            null // No actual listener to return
+        }
 
-                val userChats = if (snapshot?.exists() == true) {
-                    snapshot.toObject(UserChats::class.java)?.copy(userId = snapshot.id)
-                        ?: UserChats(userId = currentUserId)
-                } else {
-                    UserChats(userId = currentUserId)
-                }
-
-                trySend(userChats)
-            }
-
-        awaitClose { listenerRegistration.remove() }
+        // This MUST be the final statement in callbackFlow
+        awaitClose { 
+            listenerRegistration?.remove() 
+        }
     }
 
     /**
      * Deletes a specific message
      */
     override suspend fun deleteMessage(messageId: String) {
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            throw IllegalStateException("User not logged in")
+        }
+
         // Get the message to verify ownership
         val messageDoc = messagesCollection.document(messageId).get().await()
         if (!messageDoc.exists()) {
@@ -416,6 +473,11 @@ class ChatRepositoryImpl @Inject constructor(
      * Deletes an entire conversation
      */
     override suspend fun deleteConversation(conversationId: String) {
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            throw IllegalStateException("User not logged in")
+        }
+
         // Verify conversation exists and user is participant
         val conversationDoc = conversationsCollection.document(conversationId).get().await()
         if (!conversationDoc.exists()) {

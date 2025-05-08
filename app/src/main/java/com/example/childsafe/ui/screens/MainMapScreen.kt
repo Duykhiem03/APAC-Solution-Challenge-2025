@@ -25,13 +25,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.childsafe.R
+import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.Destination
+import com.example.childsafe.data.model.UserChats
 import com.example.childsafe.domain.model.navigation.Route
 import com.example.childsafe.ui.components.BottomNavigationButtons
+import com.example.childsafe.ui.components.ChatListPanel
 import com.example.childsafe.ui.components.GPSIndicator
 import com.example.childsafe.ui.navigation.NavigationViewModel
 import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.AppDimensions
+import com.example.childsafe.ui.viewmodel.ChatViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -53,8 +57,10 @@ import timber.log.Timber
  * @param onNavigateToDestination Callback when user wants to navigate to a destination
  * @param onSOSClick Callback for when the SOS button is clicked
  * @param onProfileClick Callback for when the profile button is clicked
+ * @param onChatSelected Callback for when a chat is selected
  * @param locationViewModel ViewModel for location data
  * @param navigationViewModel ViewModel for handling route calculations
+ * @param chatViewModel ViewModel for chat data
  */
 @Composable
 fun MainMapScreen(
@@ -62,8 +68,10 @@ fun MainMapScreen(
     onNavigateToDestination: (Destination) -> Unit,
     onSOSClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onChatSelected: (String) -> Unit = {},
     locationViewModel: LocationViewModel = hiltViewModel(),
-    navigationViewModel: NavigationViewModel = hiltViewModel()
+    navigationViewModel: NavigationViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     // Get current location and city name from ViewModel
     val currentLocation by locationViewModel.currentLocation.collectAsState()
@@ -78,10 +86,17 @@ fun MainMapScreen(
     // Track if we're showing route details
     var showRouteDetails by remember { mutableStateOf(false) }
     
-    // Track if we're waiting for location
-    var isWaitingForLocation by remember { mutableStateOf(currentLocation == null) }
-    // Track if camera has been initially positioned
+    // Track if we're waiting for location by remember { mutableStateOf(currentLocation == null) }
     var hasCameraMoved by remember { mutableStateOf(false) }
+    // Track if we're waiting for the location to be determined
+    var isWaitingForLocation by remember { mutableStateOf(currentLocation == null) }
+    
+    // Chat state
+    var showChatPanel by remember { mutableStateOf(false) }
+    val chatUiState by chatViewModel.uiState.collectAsState()
+    val conversations = chatUiState.conversations
+    val userChats = chatUiState.userChats
+    val isLoadingChats = chatUiState.isLoading
     
     // Extract destination location if available
     val destinationLatLng = remember(selectedDestination) {
@@ -91,6 +106,13 @@ fun MainMapScreen(
     // Determine if we should show both current location and destination
     val showBothLocations = remember(currentLocation, destinationLatLng) {
         currentLocation != null && destinationLatLng != null
+    }
+    
+    // Load chats when the chat panel is shown
+    LaunchedEffect(showChatPanel) {
+        if (showChatPanel) {
+            chatViewModel.loadConversations()
+        }
     }
     
     // Log state for debugging
@@ -277,7 +299,10 @@ fun MainMapScreen(
                 .padding(bottom = AppDimensions.spacingXLarge),
             onSOSClick = onSOSClick,
             onNavigateClick = { onNavigateToDestination(Destination()) },
-            onProfileClick = onProfileClick
+            onProfileClick = { 
+                // Toggle the chat panel when profile button is clicked
+                showChatPanel = !showChatPanel 
+            }
         )
         
         // Route information panel (shows when a route is available)
@@ -293,6 +318,22 @@ fun MainMapScreen(
                         .padding(horizontal = 16.dp)
                 )
             }
+        }
+        
+        // Chat list panel (shows when user clicks on profile button)
+        if (showChatPanel) {
+            ChatListPanel(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter),
+                conversations = conversations,
+                userChats = userChats,
+                onConversationSelected = { conversationId ->
+                    onChatSelected(conversationId)
+                    showChatPanel = false // Hide panel after selection
+                },
+                onClose = { showChatPanel = false },
+                isLoading = isLoadingChats
+            )
         }
     }
 }

@@ -42,10 +42,8 @@ class LocationViewModel @Inject constructor(
     private val searchPlacesUseCase: SearchPlacesUseCase? = null
 ) : AndroidViewModel(application) {
 
-    // FusedLocationProviderClient instance
-    private val fusedLocationClient: FusedLocationProviderClient by lazy {
-        LocationServices.getFusedLocationProviderClient(application)
-    }
+    // Initialize FusedLocationProviderClient in init block rather than lazily
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
 
     // Geocoder for reverse geocoding
     private val geocoder = Geocoder(application, Locale.getDefault())
@@ -118,6 +116,7 @@ class LocationViewModel @Inject constructor(
     // Initialize with last known location
     init {
         Timber.d("LocationViewModel initialized")
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
     }
 
     // Update location permission status
