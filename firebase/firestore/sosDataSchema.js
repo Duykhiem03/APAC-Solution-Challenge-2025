@@ -7,7 +7,7 @@
  * Last updated: May 7, 2025
  */
 
-const admin = require('firebase-admin');
+const admin = require('../admin');
 const { FieldValue } = admin.firestore;
 
 /**

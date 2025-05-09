@@ -9,6 +9,7 @@ import com.example.childsafe.data.model.MessageLocation
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.domain.repository.ChatRepository
 import com.example.childsafe.domain.repository.StorageRepository
+import com.example.childsafe.utils.EventBusManager
 import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,6 +68,21 @@ class MessageViewModel @Inject constructor(
     // Media upload progress
     private val _uploadProgress = MutableStateFlow<Float?>(null)
     val uploadProgress: StateFlow<Float?> = _uploadProgress.asStateFlow()
+
+    // Initialize EventBus listener for status updates
+    init {
+        // Collect status update events from EventBus
+        viewModelScope.launch {
+            try {
+                EventBusManager.messageStatusFlow.collect { event ->
+                    handleStatusUpdate(event.messageId, event.newStatus)
+                }
+            } catch (e: Exception) {
+                // Just log, don't expose to UI
+                // Timber.e(e, "Error collecting status updates")
+            }
+        }
+    }
 
     /**
      * Sets the current conversation and loads its messages
@@ -575,6 +591,69 @@ class MessageViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Marks newly delivered messages when conversation is opened
+     * Call this when the user views a conversation
+     */
+    fun markMessagesDelivered() {
+        val conversationId = _conversationId.value ?: return
+        
+        viewModelScope.launch {
+            try {
+                // Process any messages that need to be updated to delivered status
+                chatRepository.messageDeliveryService.processNewlyDeliveredMessages(conversationId)
+            } catch (e: Exception) {
+                // Non-critical, just log
+                // Timber.e(e, "Error marking messages delivered")
+            }
+        }
+    }
+    
+    /**
+     * Marks a specific message as read
+     * Called when a message becomes visible on screen
+     *
+     * @param messageId ID of the message to mark as read
+     */
+    fun markMessageAsRead(messageId: String) {
+        viewModelScope.launch {
+            try {
+                chatRepository.messageDeliveryService.markMessageRead(messageId)
+            } catch (e: Exception) {
+                // Non-critical, just log
+                // Timber.e(e, "Error marking message read")
+            }
+        }
+    }
+    
+    /**
+     * Handle status update events from FCM
+     * Called when a status update message is received
+     * 
+     * @param messageId ID of the message with status change
+     * @param newStatus The new status value
+     */
+    fun handleStatusUpdate(messageId: String, newStatus: String) {
+        viewModelScope.launch {
+            try {
+                chatRepository.messageDeliveryService.handleStatusUpdateNotification(messageId, newStatus)
+            } catch (e: Exception) {
+                // Non-critical, just log
+                // Timber.e(e, "Error handling status update")
+            }
+        }
+    }
+
+    /**
+     * Get the current user ID
+     * Used by UI components that need to know if a message is from the current user
+     * 
+     * @return The current user ID or an empty string if not available
+     */
+    fun getCurrentUserId(): String {
+        return com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
     }
 
     /**

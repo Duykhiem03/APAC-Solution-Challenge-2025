@@ -7,6 +7,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.data.repository.ChatRepositoryImpl
+import com.example.childsafe.domain.repository.ChatRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,9 +37,14 @@ class ChatNotificationReceiver : BroadcastReceiver() {
     @Inject
     lateinit var auth: FirebaseAuth
     
-    private val chatRepository by lazy {
-        ChatRepositoryImpl(firestore, auth)
-    }
+    @Inject 
+    lateinit var functions: com.google.firebase.functions.FirebaseFunctions
+    
+    @Inject
+    lateinit var messageDeliveryService: MessageDeliveryService
+    
+    @Inject
+    lateinit var chatRepository: ChatRepository
     
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.IO + job)

@@ -110,6 +110,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-functions")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

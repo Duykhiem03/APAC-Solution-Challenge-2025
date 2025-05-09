@@ -52,4 +52,13 @@ object FirebaseModule {
     fun provideFirebaseMessaging(): FirebaseMessaging {
         return FirebaseMessaging.getInstance()
     }
+    
+    /**
+     * Provides Firebase Cloud Functions instance
+     */
+    @Provides
+    @Singleton
+    fun provideFirebaseFunctions(): com.google.firebase.functions.FirebaseFunctions {
+        return com.google.firebase.functions.FirebaseFunctions.getInstance()
+    }
 }

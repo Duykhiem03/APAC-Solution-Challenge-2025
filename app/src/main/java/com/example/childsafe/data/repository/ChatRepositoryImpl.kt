@@ -1,18 +1,23 @@
 package com.example.childsafe.data.repository
 
+import android.content.Context
 import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.LastMessage
 import com.example.childsafe.data.model.Message
 import com.example.childsafe.data.model.MessageLocation
+import com.example.childsafe.data.model.MessageStatus
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.data.model.UserChats
 import com.example.childsafe.data.model.UserConversation
 import com.example.childsafe.domain.repository.ChatRepository
+import com.example.childsafe.services.MessageDeliveryService
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.functions.FirebaseFunctions
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -27,8 +32,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class ChatRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions,
+    override val messageDeliveryService: MessageDeliveryService
 ) : ChatRepository {
 
     // Collection references
@@ -146,16 +154,27 @@ class ChatRepositoryImpl @Inject constructor(
      * Gets a specific conversation by ID
      */
     override suspend fun getConversation(conversationId: String): Conversation? {
-        return try {
-            val documentSnapshot = conversationsCollection.document(conversationId).get().await()
-            if (documentSnapshot.exists()) {
-                documentSnapshot.toObject(Conversation::class.java)?.copy(id = documentSnapshot.id)
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            null
+        // Check authorization
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            throw IllegalStateException("User not logged in")
         }
+
+        // Get the conversation document
+        val conversationDoc = conversationsCollection.document(conversationId).get().await()
+        if (!conversationDoc.exists()) {
+            return null
+        }
+
+        // Convert to Conversation object (with ID)
+        val conversation = conversationDoc.toObject(Conversation::class.java)?.copy(id = conversationId)
+
+        // Verify the current user is a participant
+        if (conversation != null && !conversation.participants.contains(currentUserId)) {
+            throw SecurityException("User is not a participant in this conversation")
+        }
+
+        return conversation
     }
 
     /**
@@ -456,7 +475,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     /**
      * Sends a message in a conversation
-     * Enhanced with batch operations and better server timestamp handling
+     * Enhanced with delivery status tracking and better server timestamp handling
      */
     override suspend fun sendMessage(
         conversationId: String,
@@ -486,7 +505,7 @@ class ChatRepositoryImpl @Inject constructor(
         // Create batch for atomic operations
         val batch = firestore.batch()
         
-        // Create message document
+        // Create message document with initial SENDING status
         val message = hashMapOf(
             "conversationId" to conversationId,
             "sender" to currentUserId,
@@ -495,7 +514,7 @@ class ChatRepositoryImpl @Inject constructor(
             "read" to false,
             "readBy" to listOf(currentUserId),
             "messageType" to messageType.toString(),
-            "deliveryStatus" to "SENT"
+            "deliveryStatus" to "SENDING" // Start with SENDING status
         )
 
         // Add type-specific fields
@@ -590,12 +609,23 @@ class ChatRepositoryImpl @Inject constructor(
         
         // Execute all updates in a single batch
         batch.commit().await()
+        
+        // After successful commit, update status to SENT (will be handled by cloud function)
+        try {
+            messagesCollection.document(messageRef.id).update(
+                "deliveryStatus", MessageStatus.SENT.name
+            ).await()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update message status to SENT")
+            // Non-fatal, cloud function will also handle this
+        }
 
         return messageRef.id
     }
 
     /**
      * Marks all messages in a conversation as read
+     * Uses MessageDeliveryService to update statuses across devices
      */
     override suspend fun markConversationAsRead(conversationId: String) {
         val currentUserId = getCurrentUserId()
@@ -603,55 +633,42 @@ class ChatRepositoryImpl @Inject constructor(
             throw IllegalStateException("User not logged in")
         }
 
-        // Get all unread messages in the conversation that weren't sent by this user
-        val unreadMessages = messagesCollection
-            .whereEqualTo("conversationId", conversationId)
-            .whereEqualTo("read", false)
-            .whereNotEqualTo("sender", currentUserId)
-            .get()
-            .await()
-
-        // Update each message
-        unreadMessages.documents.forEach { doc ->
-            messagesCollection.document(doc.id).update(
-                mapOf(
-                    "read" to true,
-                    "readBy" to FieldValue.arrayUnion(currentUserId)
-                )
-            ).await()
-        }
-
-        // Update the conversation's lastMessage if it was unread
-        val conversationDoc = conversationsCollection.document(conversationId).get().await()
-        val conversation = conversationDoc.toObject(Conversation::class.java)
-
-        if (conversation?.lastMessage != null && !conversation.lastMessage.read) {
-            conversationsCollection.document(conversationId).update(
-                "lastMessage.read", true
-            ).await()
-        }
-
-        // Reset unread count in userChats
-        val userChatDoc = userChatsCollection.document(currentUserId).get().await()
-        if (userChatDoc.exists()) {
-            val userData = userChatDoc.toObject(UserChats::class.java)
-            val conversations = userData?.conversations ?: emptyList()
-            
-            // Find and update the specific conversation
-            val updatedConversations = conversations.map { conv ->
-                if (conv.conversationId == conversationId) {
-                    conv.copy(
-                        unreadCount = 0,
-                        lastAccessed = Timestamp.now()
-                    )
-                } else {
-                    conv
-                }
+        // Use message delivery service to mark messages as read and propagate to other devices
+        val updatedCount = messageDeliveryService.markConversationMessagesRead(conversationId)
+        
+        if (updatedCount > 0) {
+            // Update the conversation's lastMessage if it was unread
+            val conversationDoc = conversationsCollection.document(conversationId).get().await()
+            val conversation = conversationDoc.toObject(Conversation::class.java)
+    
+            if (conversation?.lastMessage != null && !conversation.lastMessage.read) {
+                conversationsCollection.document(conversationId).update(
+                    "lastMessage.read", true
+                ).await()
             }
-            
-            userChatsCollection.document(currentUserId).update(
-                "conversations", updatedConversations
-            ).await()
+    
+            // Reset unread count in userChats
+            val userChatDoc = userChatsCollection.document(currentUserId).get().await()
+            if (userChatDoc.exists()) {
+                val userData = userChatDoc.toObject(UserChats::class.java)
+                val conversations = userData?.conversations ?: emptyList()
+                
+                // Find and update the specific conversation
+                val updatedConversations = conversations.map { conv ->
+                    if (conv.conversationId == conversationId) {
+                        conv.copy(
+                            unreadCount = 0,
+                            lastAccessed = Timestamp.now()
+                        )
+                    } else {
+                        conv
+                    }
+                }
+                
+                userChatsCollection.document(currentUserId).update(
+                    "conversations", updatedConversations
+                ).await()
+            }
         }
     }
 

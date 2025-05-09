@@ -3,6 +3,8 @@ package com.example.childsafe
 import android.app.Application
 import com.example.childsafe.services.ChatNotificationService
 import com.example.childsafe.services.FirebaseMessagingManager
+import com.example.childsafe.services.FirebaseServiceLocator
+import com.example.childsafe.services.MessageDeliveryService
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +25,9 @@ class ChildSafeApp : Application() {
     
     @Inject
     lateinit var chatNotificationService: ChatNotificationService
+
+    @Inject
+    lateinit var messageDeliveryServiceProvider: javax.inject.Provider<MessageDeliveryService>
     
     // Application scope for coroutines
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -34,6 +39,9 @@ class ChildSafeApp : Application() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
+        
+        // Initialize service locator for Firebase components
+        FirebaseServiceLocator.setMessageDeliveryServiceProvider(messageDeliveryServiceProvider)
         
         // Initialize Firebase Cloud Messaging
         initFirebaseMessaging()

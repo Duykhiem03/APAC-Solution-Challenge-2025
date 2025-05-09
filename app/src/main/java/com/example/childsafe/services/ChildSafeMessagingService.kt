@@ -10,6 +10,9 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.example.childsafe.MainActivity
 import com.example.childsafe.R
+import com.example.childsafe.utils.ConversationReadEvent
+import com.example.childsafe.utils.EventBusManager
+import com.example.childsafe.utils.StatusUpdateEvent
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -66,17 +69,12 @@ class ChildSafeMessagingService : FirebaseMessagingService() {
         // Handle FCM messages here.
         Timber.d("From: ${remoteMessage.from}")
 
-        // First check if this is a chat message
+        // First check if this is a data message
         if (remoteMessage.data.isNotEmpty()) {
             Timber.d("Message data payload: ${remoteMessage.data}")
             
-            // Try to handle as chat message first
-            val handledAsChat = chatNotificationService.handleChatMessageNotification(remoteMessage.data)
-            
-            // If it wasn't a chat message or handling failed, process as general notification
-            if (!handledAsChat) {
-                processGeneralNotification(remoteMessage)
-            }
+            // Process data message based on type
+            processDataMessage(remoteMessage)
         } else {
             // If there's no data payload, process as a general notification
             processGeneralNotification(remoteMessage)
@@ -91,6 +89,83 @@ class ChildSafeMessagingService : FirebaseMessagingService() {
         remoteMessage.notification?.let {
             Timber.d("Message Notification Body: ${it.body}")
             sendNotification(it.body)
+        }
+    }
+
+    /**
+     * Process FCM data messages
+     */
+    private fun processDataMessage(remoteMessage: RemoteMessage) {
+        val data = remoteMessage.data
+        if (data.isEmpty()) return
+        
+        when (data["type"]) {
+            "chat_message" -> {
+                handleChatMessage(data)
+            }
+            "status_update" -> {
+                handleStatusUpdate(data)
+            }
+            else -> {
+                processGeneralNotification(remoteMessage)
+            }
+        }
+    }
+    
+    /**
+     * Handle messages about delivery status changes
+     */
+    private fun handleStatusUpdate(data: Map<String, String>) {
+        serviceScope.launch {
+            try {
+                // Get required parameters
+                val notificationType = data["notificationType"] ?: "message_status_change"
+                
+                when (notificationType) {
+                    "message_status_change" -> {
+                        val messageId = data["messageId"] ?: return@launch
+                        val newStatus = data["newStatus"] ?: return@launch
+                        
+                        // Update local database
+                        val messageDeliveryService = FirebaseServiceLocator.getMessageDeliveryService()
+                        messageDeliveryService.handleStatusUpdateNotification(messageId, newStatus)
+                        
+                        // Broadcast the update to active ViewModels
+                        EventBusManager.post(StatusUpdateEvent(messageId, newStatus))
+                    }
+                    "conversation_read" -> {
+                        // Handle bulk read notifications
+                        val conversationId = data["conversationId"] ?: return@launch
+                        val readerId = data["readerId"] ?: return@launch
+                        val readerName = data["readerName"] ?: "Someone"
+                        
+                        // Broadcast conversation read event
+                        EventBusManager.post(ConversationReadEvent(conversationId, readerId, readerName))
+                    }
+                    else -> {
+                        Timber.w("Unknown notification type: $notificationType")
+                    }
+                }
+                
+                // We don't show notifications for status updates, they're silent
+                
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to process status update")
+            }
+        }
+    }
+    
+    /**
+     * Handle chat message notifications
+     */
+    private fun handleChatMessage(data: Map<String, String>) {
+        // Try to handle as chat message
+        val handledAsChat = chatNotificationService.handleChatMessageNotification(data)
+        
+        // If it wasn't handled as a chat, process as general notification
+        if (!handledAsChat) {
+            val body = data["messageText"] ?: "New message"
+            sendNotification(body)
         }
     }
 

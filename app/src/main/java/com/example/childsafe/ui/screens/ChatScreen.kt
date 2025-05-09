@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.example.childsafe.ui.components.MessageStateTrackerDialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +83,9 @@ fun ChatScreen(
     val isNetworkAvailable = uiState.isNetworkAvailable
     val failedMessages = uiState.failedMessages
     
+    // Debug dialog state
+    var showMessageStateDialog by remember { mutableStateOf(false) }
+    
     // Start observing user status (typing/online)
     LaunchedEffect(conversationId) {
         messageViewModel.startObservingUserStatus()
@@ -138,6 +142,29 @@ fun ChatScreen(
             // In a real app, you would get the contact's name from UserRepository
             // Currently using a placeholder
             "Contact"
+        }
+    }
+
+    // Track visible messages for read receipts
+    val visibleMessages = remember { mutableStateListOf<String>() }
+    
+    // Mark messages as delivered when screen is opened
+    LaunchedEffect(conversationId) {
+        messageViewModel.markMessagesDelivered()
+    }
+
+    // Mark visible messages as read
+    LaunchedEffect(messages) {
+        // Process newly visible messages that need to be marked as read
+        if (messages.isNotEmpty()) {
+            messages.forEach { message ->
+                if (!message.read && message.sender != messageViewModel.getCurrentUserId() && !visibleMessages.contains(message.id)) {
+                    // Add to tracking list
+                    visibleMessages.add(message.id)
+                    // Mark as read
+                    messageViewModel.markMessageAsRead(message.id)
+                }
+            }
         }
     }
 
@@ -315,6 +342,15 @@ fun ChatScreen(
                                             showMenu = false
                                         }
                                     )
+                                    
+                                    // Add message state tracker for debugging
+                                    DropdownMenuItem(
+                                        text = { Text("Show Message States") },
+                                        onClick = {
+                                            showMessageStateDialog = true
+                                            showMenu = false
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -400,6 +436,14 @@ fun ChatScreen(
                         TypingDots()
                     }
                 }
+            }
+            
+            // Show message state dialog when requested (debug only)
+            if (showMessageStateDialog) {
+                MessageStateTrackerDialog(
+                    conversationId = conversationId,
+                    onDismiss = { showMessageStateDialog = false }
+                )
             }
         }
     }

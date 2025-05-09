@@ -5,7 +5,7 @@
  * for the chat functionality in ChildSafe app.
  */
 
-const admin = require('firebase-admin');
+const admin = require('../admin');
 const db = admin.firestore();
 
 // Collection references

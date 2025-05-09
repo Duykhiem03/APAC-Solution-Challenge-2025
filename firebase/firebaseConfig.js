@@ -1,4 +1,5 @@
-import admin from "firebase-admin";
+// Import the centralized admin instance
+import { admin } from "./admin.js";
 import dotenv from "dotenv";
 import { initializeApp } from "firebase/app";
 import {
@@ -10,7 +11,7 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 
-import credentials from "../serviceAccountKey.json" with { type: "json" };
+// Note: No need to import credentials or initialize admin here
 
 dotenv.config();
 
@@ -26,11 +27,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Configure Firebase application
-// Securely interact with Firebase service
-admin.initializeApp({
-  credential: admin.credential.cert(credentials),
-});
+// Admin is already initialized in our centralized admin.js
+// No need to initialize again here
 
 export {
   app,

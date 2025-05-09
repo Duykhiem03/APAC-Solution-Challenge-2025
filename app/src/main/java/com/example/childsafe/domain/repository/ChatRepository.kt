@@ -5,6 +5,7 @@ import com.example.childsafe.data.model.Message
 import com.example.childsafe.data.model.MessageLocation
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.data.model.UserChats
+import com.example.childsafe.services.MessageDeliveryService
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -12,6 +13,12 @@ import kotlinx.coroutines.flow.Flow
  * Defines methods for interacting with chat data sources
  */
 interface ChatRepository {
+
+    /**
+     * MessageDeliveryService for status updates
+     * Exposed for use by ViewModels
+     */
+    val messageDeliveryService: MessageDeliveryService
 
     /**
      * Observes conversations for the current user

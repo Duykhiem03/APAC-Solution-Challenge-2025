@@ -10,7 +10,8 @@
  * 4. Sends properly formatted chat notification to recipients' devices
  */
 
-const admin = require('firebase-admin');
+// Import the centralized admin instance
+const admin = require('./admin');
 const functions = require('firebase-functions');
 const db = admin.firestore();
 
