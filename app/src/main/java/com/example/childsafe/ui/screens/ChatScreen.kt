@@ -202,6 +202,122 @@ fun ChatScreen(
                         IconButton(onClick = { /* Handle video call */ }) {
                             Icon(Icons.Default.VideoCall, contentDescription = "Video Call")
                         }
+                        
+                        // Add notification test menu (only in debug builds)
+                        if (com.example.childsafe.BuildConfig.DEBUG) {
+                            var showMenu by remember { mutableStateOf(false) }
+                            
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Test Menu")
+                                }
+                                
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false }
+                                ) {
+                                    // Inject our test helper
+                                    val testHelper = androidx.hilt.navigation.compose.hiltViewModel<com.example.childsafe.utils.NotificationTestHelper>()
+                                    val conversationObj = uiState.conversation
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Test Text Notification") },
+                                        onClick = {
+                                            conversationObj?.let {
+                                                testHelper.testChatMessageNotification(
+                                                    conversation = it,
+                                                    messageText = "Text notification test message",
+                                                    messageType = MessageType.TEXT
+                                                )
+                                            }
+                                            showMenu = false
+                                        }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Test Image Notification") },
+                                        onClick = {
+                                            conversationObj?.let {
+                                                testHelper.testChatMessageNotification(
+                                                    conversation = it,
+                                                    messageText = "Photo from the park",
+                                                    messageType = MessageType.IMAGE
+                                                )
+                                            }
+                                            showMenu = false
+                                        }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Test Audio Notification") },
+                                        onClick = {
+                                            conversationObj?.let {
+                                                testHelper.testChatMessageNotification(
+                                                    conversation = it,
+                                                    messageText = "Voice message (0:15)",
+                                                    messageType = MessageType.AUDIO
+                                                )
+                                            }
+                                            showMenu = false
+                                        }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Test Location Notification") },
+                                        onClick = {
+                                            conversationObj?.let {
+                                                testHelper.testChatMessageNotification(
+                                                    conversation = it,
+                                                    messageText = "My current location",
+                                                    messageType = MessageType.LOCATION
+                                                )
+                                            }
+                                            showMenu = false
+                                        }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Test FCM Payload") },
+                                        onClick = {
+                                            conversationObj?.let {
+                                                testHelper.testFcmPayload(
+                                                    conversation = it,
+                                                    messageText = "Test FCM message payload"
+                                                )
+                                            }
+                                            showMenu = false
+                                        }
+                                    )
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Test All Message Types") },
+                                        onClick = {
+                                            conversationObj?.let {
+                                                testHelper.testAllMessageTypes(it)
+                                            }
+                                            showMenu = false
+                                        }
+                                    )
+                                    
+                                    // Add a divider to separate notification tests from other test functions
+                                    Divider()
+                                    
+                                    // Add option to create test conversation
+                                    // Get test data helper outside of the onClick lambda
+                                    val dataHelper = androidx.hilt.navigation.compose.hiltViewModel<com.example.childsafe.utils.TestDataHelper>()
+                                    val localContext = androidx.compose.ui.platform.LocalContext.current
+                                    
+                                    DropdownMenuItem(
+                                        text = { Text("Create Test Conversation") },
+                                        onClick = {
+                                            // Create a test conversation using the already injected helper
+                                            dataHelper.createTestConversation(context = localContext)
+                                            showMenu = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 )
             }

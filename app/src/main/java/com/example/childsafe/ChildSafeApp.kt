@@ -1,6 +1,7 @@
 package com.example.childsafe
 
 import android.app.Application
+import com.example.childsafe.services.ChatNotificationService
 import com.example.childsafe.services.FirebaseMessagingManager
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
@@ -20,6 +21,9 @@ class ChildSafeApp : Application() {
     @Inject
     lateinit var firebaseMessagingManager: FirebaseMessagingManager
     
+    @Inject
+    lateinit var chatNotificationService: ChatNotificationService
+    
     // Application scope for coroutines
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
@@ -33,6 +37,9 @@ class ChildSafeApp : Application() {
         
         // Initialize Firebase Cloud Messaging
         initFirebaseMessaging()
+        
+        // Initialize notification channels
+        chatNotificationService.createNotificationChannels()
     }
     
     /**

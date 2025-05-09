@@ -1,14 +1,19 @@
 package com.example.childsafe.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -334,6 +339,43 @@ fun MainMapScreen(
                 onClose = { showChatPanel = false },
                 isLoading = isLoadingChats
             )
+        }
+        Surface(
+            modifier = Modifier.padding(top = 16.dp),
+            color = Color.Red,
+            contentColor = Color.White
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Chats",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                
+                // Add test button in debug mode
+                if (com.example.childsafe.BuildConfig.DEBUG) {
+                    // Add option to create test conversation
+                    // Get test data helper outside of the onClick lambda
+                    val dataHelper = androidx.hilt.navigation.compose.hiltViewModel<com.example.childsafe.utils.TestDataHelper>()
+                    val localContext = androidx.compose.ui.platform.LocalContext.current
+
+                    TextButton(
+                        onClick = {
+                            dataHelper.createTestConversation(context = localContext)
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = AppColors.Primary
+                        )
+                    ) {
+                        Text("Add Test Chat")
+                    }
+                }
+            }
         }
     }
 }

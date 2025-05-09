@@ -30,6 +30,11 @@
             </intent-filter>
         </service>
 
+        <!-- Add notification receiver for chat actions -->
+        <receiver
+            android:name=".services.ChatNotificationReceiver"
+            android:exported="false"/>
+
         <!-- Add default notification icon and color -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

@@ -38,6 +38,9 @@ class ChildSafeMessagingService : FirebaseMessagingService() {
     @Inject
     lateinit var auth: FirebaseAuth
     
+    @Inject
+    lateinit var chatNotificationService: ChatNotificationService
+    
     // Create a CoroutineScope for the service
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
@@ -45,6 +48,12 @@ class ChildSafeMessagingService : FirebaseMessagingService() {
     // Create a lazy-initialized messaging manager
     private val messagingManager by lazy {
         FirebaseMessagingManager(auth, firestore)
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        // Initialize notification channels
+        chatNotificationService.createNotificationChannels()
     }
 
     override fun onNewToken(token: String) {
@@ -57,11 +66,27 @@ class ChildSafeMessagingService : FirebaseMessagingService() {
         // Handle FCM messages here.
         Timber.d("From: ${remoteMessage.from}")
 
-        // Check if message contains a data payload.
-        remoteMessage.data.isNotEmpty().let {
+        // First check if this is a chat message
+        if (remoteMessage.data.isNotEmpty()) {
             Timber.d("Message data payload: ${remoteMessage.data}")
+            
+            // Try to handle as chat message first
+            val handledAsChat = chatNotificationService.handleChatMessageNotification(remoteMessage.data)
+            
+            // If it wasn't a chat message or handling failed, process as general notification
+            if (!handledAsChat) {
+                processGeneralNotification(remoteMessage)
+            }
+        } else {
+            // If there's no data payload, process as a general notification
+            processGeneralNotification(remoteMessage)
         }
+    }
 
+    /**
+     * Process a general (non-chat) notification
+     */
+    private fun processGeneralNotification(remoteMessage: RemoteMessage) {
         // Check if message contains a notification payload.
         remoteMessage.notification?.let {
             Timber.d("Message Notification Body: ${it.body}")

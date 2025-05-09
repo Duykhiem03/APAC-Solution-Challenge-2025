@@ -15,8 +15,8 @@ import com.google.firebase.firestore.PropertyName
 data class Conversation(
     @DocumentId val id: String = "",
     val participants: List<String> = emptyList(),
-    val createdAt: Timestamp = Timestamp.now(),
-    val updatedAt: Timestamp = Timestamp.now(),
+    val createdAt: Timestamp? = Timestamp.now(),
+    val updatedAt: Timestamp? = Timestamp.now(),
     val lastMessage: LastMessage? = null,
     val isGroup: Boolean = false,
     val groupName: String = "",
