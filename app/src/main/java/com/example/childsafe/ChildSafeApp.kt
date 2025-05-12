@@ -1,10 +1,12 @@
 package com.example.childsafe
 
 import android.app.Application
+import androidx.work.Configuration
 import com.example.childsafe.services.ChatNotificationService
 import com.example.childsafe.services.FirebaseMessagingManager
 import com.example.childsafe.services.FirebaseServiceLocator
 import com.example.childsafe.services.MessageDeliveryService
+import com.example.childsafe.services.MessageSyncService
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -18,16 +20,24 @@ import javax.inject.Inject
  * Main application class that initializes Dagger Hilt and other app-wide components
  */
 @HiltAndroidApp
-class ChildSafeApp : Application() {
+class ChildSafeApp() : Application(), Configuration.Provider {
     
     @Inject
     lateinit var firebaseMessagingManager: FirebaseMessagingManager
-    
-    @Inject
+      @Inject
     lateinit var chatNotificationService: ChatNotificationService
 
     @Inject
     lateinit var messageDeliveryServiceProvider: javax.inject.Provider<MessageDeliveryService>
+    
+    @Inject
+    lateinit var messageSyncService: MessageSyncService
+    
+    @Inject
+    lateinit var authRepository: com.example.childsafe.auth.FirebaseAuthRepository
+    
+    @Inject
+    override lateinit var workManagerConfiguration: Configuration
     
     // Application scope for coroutines
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -43,11 +53,18 @@ class ChildSafeApp : Application() {
         // Initialize service locator for Firebase components
         FirebaseServiceLocator.setMessageDeliveryServiceProvider(messageDeliveryServiceProvider)
         
-        // Initialize Firebase Cloud Messaging
-        initFirebaseMessaging()
-        
-        // Initialize notification channels
+        // Initialize Firebase Cloud Messaging        initFirebaseMessaging()
+          // Initialize notification channels
         chatNotificationService.createNotificationChannels()
+        
+        // Start message synchronization service for offline messages
+        messageSyncService.start()
+        
+        // Schedule periodic retries for failed messages
+        messageSyncService.schedulePeriodicRetries()
+        
+        // Set up authentication state listener
+        authRepository.setupAuthStateListener()
     }
     
     /**

@@ -10,11 +10,18 @@ import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.data.model.UserChats
 import com.example.childsafe.data.model.UserConversation
 import com.example.childsafe.domain.repository.ChatRepository
+import com.example.childsafe.services.ConnectionManager
 import com.example.childsafe.services.MessageDeliveryService
+import com.example.childsafe.services.MessageSyncService
+import com.example.childsafe.validation.ConversationValidator
+import com.example.childsafe.validation.MessageValidator
+import com.example.childsafe.concurrency.ConflictResolutionService
+import com.example.childsafe.concurrency.DocumentVersioningService
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import com.google.firebase.functions.FirebaseFunctions
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -36,8 +43,14 @@ class ChatRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
     private val functions: FirebaseFunctions,
-    override val messageDeliveryService: MessageDeliveryService
+    override val messageDeliveryService: MessageDeliveryService,
+    private val connectionManager: ConnectionManager,
+    private val messageSyncServiceProvider: javax.inject.Provider<MessageSyncService>,
+    private val documentVersioningService: DocumentVersioningService
 ) : ChatRepository {
+    
+    // Access the MessageSyncService lazily through the provider
+    private val messageSyncService: MessageSyncService by lazy { messageSyncServiceProvider.get() }
 
     // Collection references
     private val conversationsCollection = firestore.collection("conversations")
@@ -49,8 +62,14 @@ class ChatRepositoryImpl @Inject constructor(
     // Mock user ID for development testing when auth fails
     private val mockUserId = "mock_user_123456"
     
-    // Timestamp for calculating online/offline times
-    private val ONLINE_THRESHOLD_SECONDS = 120 // 2 minutes
+    // Cache of online users per conversation
+    private val _onlineUsers = mutableMapOf<String, List<String>>()
+    
+    // Constants for online status tracking
+    companion object {
+        // Consider a user offline if not active in the last 2 minutes
+        private const val ONLINE_THRESHOLD_SECONDS = 2 * 60
+    }
 
     /**
      * Observes conversations for the current user as a Flow
@@ -475,7 +494,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     /**
      * Sends a message in a conversation
-     * Enhanced with delivery status tracking and better server timestamp handling
+     * Enhanced with delivery status tracking and offline support
      */
     override suspend fun sendMessage(
         conversationId: String,
@@ -484,22 +503,61 @@ class ChatRepositoryImpl @Inject constructor(
         mediaUrl: String?,
         location: MessageLocation?
     ): String {
+        // Validate message data before proceeding
+        val validationResult = MessageValidator.validateMessage(text, messageType, mediaUrl, location)
+        if (!validationResult.isValid()) {
+            val errorMessage = validationResult.getFirstErrorOrNull() ?: "Invalid message data"
+            Timber.e("Message validation failed: $errorMessage")
+            throw IllegalArgumentException(errorMessage)
+        }
+        
+        // First, refresh authentication token to ensure it's valid
+        try {
+            auth.currentUser?.getIdToken(true)?.await()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to refresh authentication token before sending message")
+            // Continue anyway, we'll handle auth errors later
+        }
+        
         // Verify conversation exists and user is participant
         val currentUserId = getCurrentUserId()
         if (currentUserId == null) {
+            Timber.e("Failed to send message: User not logged in")
             throw IllegalStateException("User not logged in")
         }
 
-        val conversationDoc = conversationsCollection.document(conversationId).get().await()
-        if (!conversationDoc.exists()) {
-            throw IllegalArgumentException("Conversation not found")
+        // Check if we're offline - if so, queue message for later
+        if (!isOnline()) {
+            Timber.d("Offline mode: Queueing message for later")
+            return messageSyncService.queueMessage(
+                conversationId,
+                text,
+                messageType,
+                mediaUrl,
+                location
+            )
         }
 
-        val conversation = conversationDoc.toObject(Conversation::class.java)
-            ?: throw IllegalArgumentException("Invalid conversation data")
+        // Define conversation variable at a broader scope so it's accessible throughout the method
+        val conversation: Conversation
+        
+        try {
+            val conversationDoc = conversationsCollection.document(conversationId).get().await()
+            if (!conversationDoc.exists()) {
+                Timber.e("Failed to send message: Conversation $conversationId not found")
+                throw IllegalArgumentException("Conversation not found")
+            }
 
-        if (!conversation.participants.contains(currentUserId)) {
-            throw SecurityException("User is not a participant in this conversation")
+            conversation = conversationDoc.toObject(Conversation::class.java)
+                ?: throw IllegalArgumentException("Invalid conversation data")
+
+            if (!conversation.participants.contains(currentUserId)) {
+                Timber.e("Permission denied: User $currentUserId is not a participant in conversation $conversationId")
+                throw SecurityException("User is not a participant in this conversation")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error verifying conversation access before sending message")
+            throw e
         }
 
         // Create batch for atomic operations
@@ -514,7 +572,9 @@ class ChatRepositoryImpl @Inject constructor(
             "read" to false,
             "readBy" to listOf(currentUserId),
             "messageType" to messageType.toString(),
-            "deliveryStatus" to "SENDING" // Start with SENDING status
+            "deliveryStatus" to "SENDING", // Start with SENDING status
+            "version" to 1, // Initial version for concurrency control
+            "clientTimestamp" to System.currentTimeMillis() // Add client timestamp for debugging
         )
 
         // Add type-specific fields
@@ -607,20 +667,58 @@ class ChatRepositoryImpl @Inject constructor(
             }
         }
         
-        // Execute all updates in a single batch
-        batch.commit().await()
-        
-        // After successful commit, update status to SENT (will be handled by cloud function)
+        // Execute all updates in a single batch with detailed error handling
         try {
-            messagesCollection.document(messageRef.id).update(
-                "deliveryStatus", MessageStatus.SENT.name
-            ).await()
+            batch.commit().await()
+            Timber.d("Message batch successfully committed to Firestore: ${messageRef.id}")
+            
+            // After successful commit, update status to SENT (will be handled by cloud function)
+            try {
+                messagesCollection.document(messageRef.id).update(
+                    "deliveryStatus", MessageStatus.SENT.name
+                ).await()
+                
+                // Log success
+                Timber.d("Message status updated to SENT: ${messageRef.id}")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to update message status to SENT for message ${messageRef.id}")
+                // Non-fatal, cloud function will also handle this
+            }
+            
+            return messageRef.id
         } catch (e: Exception) {
-            Timber.e(e, "Failed to update message status to SENT")
-            // Non-fatal, cloud function will also handle this
+            val errorMessage = e.message ?: "Unknown error"
+            Timber.e(e, "Failed to commit message batch: $errorMessage")
+            
+            // Check specifically for permission errors
+            if (errorMessage.contains("permission", ignoreCase = true) || 
+                errorMessage.contains("PERMISSION_DENIED", ignoreCase = true)) {
+                
+                // Try to get the specific document that failed
+                try {
+                    val userDoc = auth.currentUser?.let { user ->
+                        firestore.collection("users").document(user.uid).get().await()
+                    }
+                    
+                    val convDoc = conversationsCollection.document(conversationId).get().await()
+                    
+                    Timber.e(
+                        "Permission denied error details: " +
+                        "User exists in DB: ${userDoc?.exists()}, " +
+                        "Conversation exists: ${convDoc.exists()}, " +
+                        "Participants: ${convDoc.data?.get("participants")}"
+                    )
+                } catch (innerEx: Exception) {
+                    // Just log additional error
+                    Timber.e(innerEx, "Failed to get additional error details")
+                }
+                
+                throw SecurityException("Permission denied when sending message. Make sure you're logged in and have access to this conversation.")
+            }
+            
+            // Re-throw the original exception for other error types
+            throw e
         }
-
-        return messageRef.id
     }
 
     /**
@@ -894,6 +992,13 @@ class ChatRepositoryImpl @Inject constructor(
     }
     
     /**
+     * Gets the current user ID synchronously (non-suspending)
+     */
+    override fun getCurrentUserIdSync(): String? {
+        return auth.currentUser?.uid ?: mockUserId
+    }
+    
+    /**
      * Gets older messages before a specified timestamp
      */
     override suspend fun getOlderMessages(
@@ -999,16 +1104,33 @@ class ChatRepositoryImpl @Inject constructor(
         // Use the current user's ID for checking typing status
         val currentUserId = getCurrentUserId()
         
+        // First verify that we have access to the conversation
+        try {
+            val conversation = conversationsCollection.document(conversationId).get().await()
+            if (conversation == null || !conversation.exists() || 
+                currentUserId == null || !(conversation.data?.get("participants") as? List<*>)?.contains(currentUserId)!!
+            ) {
+                Timber.w("Not authorized to access conversation $conversationId or conversation doesn't exist")
+                close(FirebaseFirestoreException("Not authorized to access this conversation", 
+                      FirebaseFirestoreException.Code.PERMISSION_DENIED))
+                return@callbackFlow
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error checking conversation access")
+            trySend(emptyList()) // Don't close the flow for this error
+        }
+        
         // Set up listener for typing status collection
         val listenerRegistration = typingCollection
             .whereEqualTo("conversationId", conversationId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     // Log the error but don't close the flow unless it's a fatal error
-                    Timber.e(error, "Error observing typing status")
+                    Timber.e(error, "Error observing typing status with conversationId: $conversationId")
                     if (error.message?.contains("permission") == true || 
                         error.message?.contains("PERMISSION_DENIED") == true) {
-                        close(error)
+                        Timber.e("Permission denied error for typing status. Check Firestore rules.")
+                        trySend(emptyList()) // Send empty instead of closing to avoid cascading failures
                         return@addSnapshotListener
                     }
                     // Just send empty list on non-fatal errors
@@ -1172,24 +1294,66 @@ class ChatRepositoryImpl @Inject constructor(
                 val thresholdSeconds = now - ONLINE_THRESHOLD_SECONDS
                 
                 // Extract user IDs of users who are online
-                val onlineUsers = snapshot?.documents
-                    ?.filter { doc -> 
-                        // Check explicitly set online flag first
-                        val isOnline = doc.getBoolean("isOnline") ?: false
-                        
-                        // Then check last active timestamp as backup
-                        if (isOnline) {
-                            val lastActiveTimestamp = doc.getTimestamp("lastActive")
-                            // Consider online only if active within threshold
-                            lastActiveTimestamp != null && lastActiveTimestamp.seconds > thresholdSeconds
-                        } else {
-                            false
-                        }
-                    }
-                    ?.mapNotNull { it.getString("userId") }
-                    ?: emptyList()
+                // Previous online users for change detection
+                val previousOnlineUsers = _onlineUsers[conversationId] ?: emptyList()
                 
-                trySend(onlineUsers)
+                // Process online users with their status
+                val onlineUsersList = mutableListOf<String>()
+                val presenceUpdates = mutableListOf<Pair<String, Boolean>>()
+                val lastSeenMap = mutableMapOf<String, Timestamp>()
+                
+                snapshot?.documents?.forEach { doc ->
+                    val userId = doc.getString("userId") ?: return@forEach
+                    val isOnlineFlag = doc.getBoolean("isOnline") ?: false
+                    val lastActiveTimestamp = doc.getTimestamp("lastActive")
+                    
+                    // Determine if user is online
+                    val isActuallyOnline = if (isOnlineFlag) {
+                        // Consider online only if active within threshold
+                        lastActiveTimestamp != null && lastActiveTimestamp.seconds > thresholdSeconds
+                    } else {
+                        false
+                    }
+                    
+                    // Track last seen timestamp for offline users
+                    if (!isActuallyOnline && lastActiveTimestamp != null) {
+                        lastSeenMap[userId] = lastActiveTimestamp
+                    }
+                    
+                    // Track online users
+                    if (isActuallyOnline) {
+                        onlineUsersList.add(userId)
+                    }
+                    
+                    // Detect status changes and create events
+                    val wasOnlineBefore = previousOnlineUsers.contains(userId)
+                    if (wasOnlineBefore != isActuallyOnline) {
+                        presenceUpdates.add(userId to isActuallyOnline)
+                    }
+                }
+                
+                // Update the cached online users for this conversation
+                _onlineUsers[conversationId] = onlineUsersList
+                
+                // Broadcast presence updates
+                presenceUpdates.forEach { (userId, isOnline) ->
+                    val timestamp = if (!isOnline) lastSeenMap[userId] else null
+                    try {
+                        com.example.childsafe.utils.EventBusManager.postPresence(
+                            com.example.childsafe.utils.UserPresenceEvent(
+                                userId = userId,
+                                isOnline = isOnline,
+                                conversationId = conversationId,
+                                lastSeenTimestamp = timestamp
+                            )
+                        )
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error broadcasting presence update")
+                    }
+                }
+                
+                // Send the list of online users to the collector
+                trySend(onlineUsersList)
             }
         
         // This MUST be the final statement in callbackFlow
@@ -1337,6 +1501,43 @@ class ChatRepositoryImpl @Inject constructor(
             Timber.e(e, "Failed to set user offline")
             // Rethrow to allow caller to handle
             throw e
+        }
+    }
+
+    /**
+     * Get whether the current connection is online or offline
+     */
+    override fun isOnline(): Boolean {
+        return connectionManager.isNetworkAvailable()
+    }
+
+    /**
+     * Force retry sending failed messages
+     */
+    override suspend fun retryFailedMessages() {
+        messageSyncService.retryFailedMessages()
+    }
+    
+    /**
+     * Retry sending a specific failed message
+     * @param messageId ID of the message to retry
+     * @return true if the message was found and retry was initiated, false otherwise
+     */
+    override suspend fun retryMessage(messageId: String): Boolean {
+        return try {
+            // Find the message in local offline storage
+            val found = messageSyncService.retryMessage(messageId)
+            
+            if (found) {
+                Timber.d("Message $messageId retry initiated")
+            } else {
+                Timber.d("Message $messageId not found or not in a state to retry")
+            }
+            
+            found
+        } catch (e: Exception) {
+            Timber.e(e, "Error retrying message $messageId")
+            false
         }
     }
 }

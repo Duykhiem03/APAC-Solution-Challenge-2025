@@ -3,7 +3,6 @@ package com.example.childsafe.utils
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.example.childsafe.data.model.Conversation
-import com.example.childsafe.data.model.LastMessage
 import com.example.childsafe.data.model.Message
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.services.ChatNotificationService
@@ -14,7 +13,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Utility class to test notifications from within the app itself.
@@ -48,7 +46,7 @@ class NotificationTestHelper @Inject constructor(
             sender = findOtherParticipant(conversation),
             text = messageText,
             timestamp = Timestamp.now(),
-            messageType = messageType,
+            messageType = messageType.toString(),
             read = false
         )
         

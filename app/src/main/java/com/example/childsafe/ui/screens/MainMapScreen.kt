@@ -41,6 +41,7 @@ import com.example.childsafe.ui.navigation.NavigationViewModel
 import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.AppDimensions
 import com.example.childsafe.ui.viewmodel.ChatViewModel
+import com.example.childsafe.ui.viewmodel.FriendsViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -56,27 +57,20 @@ import kotlinx.coroutines.delay
 import timber.log.Timber
 
 /**
- * Main map screen showing user's current location and selected destination
- *
- * @param selectedDestination The destination that was selected by the user, if any
- * @param onNavigateToDestination Callback when user wants to navigate to a destination
- * @param onSOSClick Callback for when the SOS button is clicked
- * @param onProfileClick Callback for when the profile button is clicked
- * @param onConversationSelected Callback for when a chat conversation is selected
- * @param locationViewModel ViewModel for location data
- * @param navigationViewModel ViewModel for handling route calculations
- * @param chatViewModel ViewModel for chat data
+ * Main map screen showing user's current location, destination, and safety information
  */
 @Composable
 fun MainMapScreen(
-    selectedDestination: Destination? = null,
-    onNavigateToDestination: (Destination) -> Unit,
+    onNavigateToDestination: () -> Unit = {},
     onSOSClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onConversationSelected: (String) -> Unit = {},
+    onUserSearchClick: () -> Unit = {},
+    selectedDestination: Destination? = null,
     locationViewModel: LocationViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel(),
     navigationViewModel: NavigationViewModel = hiltViewModel(),
-    chatViewModel: ChatViewModel = hiltViewModel()
+    friendsViewModel: FriendsViewModel = hiltViewModel()
 ) {
     // Get current location and city name from ViewModel
     val currentLocation by locationViewModel.currentLocation.collectAsState()
@@ -94,14 +88,49 @@ fun MainMapScreen(
     // Track if we're waiting for location by remember { mutableStateOf(currentLocation == null) }
     var hasCameraMoved by remember { mutableStateOf(false) }
     // Track if we're waiting for the location to be determined
-    var isWaitingForLocation by remember { mutableStateOf(currentLocation == null) }
-    
-    // Chat state
+    var isWaitingForLocation by remember { mutableStateOf(currentLocation == null) }    // Chat state
     var showChatPanel by remember { mutableStateOf(false) }
+    
+    // Use a mutableState to track loading status separately
+    var isManuallyLoadingChats by remember { mutableStateOf(false) }
+    
+    // Collect chat UI state
     val chatUiState by chatViewModel.uiState.collectAsState()
-    val conversations = chatUiState.conversations
+    
+    // Track conversations as a derived value that we can debug
+    val conversations = chatUiState.conversations.also {
+        if (it.isNotEmpty()) {
+            Timber.d("MainMapScreen: chatUiState has ${it.size} conversations")
+        }
+    }
     val userChats = chatUiState.userChats
-    val isLoadingChats = chatUiState.isLoading
+    val isLoadingChats = chatUiState.isLoading || isManuallyLoadingChats
+      // Force initialization of ChatViewModel on startup to ensure it loads data
+    LaunchedEffect(Unit) {
+        Timber.d("MainMapScreen: Initial load of conversations")
+        isManuallyLoadingChats = true
+        chatViewModel.loadConversations()
+        delay(300) // Small delay
+        chatViewModel.forceRefreshConversations() // Use our direct access method
+        delay(300) // Small delay after force refresh
+        chatViewModel.debugState() // Debug the state
+        isManuallyLoadingChats = false
+    }
+    
+    // Add debug logging to verify conversations
+    LaunchedEffect(showChatPanel, conversations) {
+        if (showChatPanel) {
+            Timber.d("MainMapScreen: Chat panel is visible, conversation count: ${conversations.size}")
+            conversations.forEachIndexed { index, conversation ->
+                Timber.d("MainMapScreen: Conversation #${index+1}: id=${conversation.id}, lastMsg=${conversation.lastMessage?.text ?: "none"}")
+            }
+        }
+    }
+    
+    // Add a specific effect to log when showChatPanel changes
+    LaunchedEffect(showChatPanel) {
+        Timber.d("MainMapScreen: showChatPanel changed to $showChatPanel")
+    }
     
     // Extract destination location if available
     val destinationLatLng = remember(selectedDestination) {
@@ -112,17 +141,27 @@ fun MainMapScreen(
     val showBothLocations = remember(currentLocation, destinationLatLng) {
         currentLocation != null && destinationLatLng != null
     }
-    
     // Load chats when the chat panel is shown
     LaunchedEffect(showChatPanel) {
+        Timber.d("MainMapScreen: showChatPanel changed to $showChatPanel")
         if (showChatPanel) {
+            Timber.d("MainMapScreen: Loading conversations...")
+            isManuallyLoadingChats = true
             chatViewModel.loadConversations()
+            delay(500) // Give time for changes to propagate
+            chatViewModel.debugState() // Call our new debug function
+            isManuallyLoadingChats = false
         }
     }
     
     // Log state for debugging
     LaunchedEffect(selectedDestination) {
         Timber.d("MainMapScreen: Selected destination: ${selectedDestination?.name}, location: $destinationLatLng")
+    }
+    
+    // Debug effect to log each state change in chatUiState
+    LaunchedEffect(chatUiState) {
+        Timber.d("MainMapScreen: chatUiState updated - isLoading: ${chatUiState.isLoading}, conversations: ${chatUiState.conversations.size}")
     }
 
     // Force location update when screen is displayed
@@ -295,18 +334,24 @@ fun MainMapScreen(
                     }
                 }
             }
-        )
-
-        // Bottom navigation buttons
+        )        // Bottom navigation buttons
         BottomNavigationButtons(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = AppDimensions.spacingXLarge),
             onSOSClick = onSOSClick,
-            onNavigateClick = { onNavigateToDestination(Destination()) },
-            onProfileClick = { 
+            onNavigateClick = { onNavigateToDestination() },            onProfileClick = { 
                 // Toggle the chat panel when profile button is clicked
-                showChatPanel = !showChatPanel 
+                val newShowChatPanel = !showChatPanel
+                showChatPanel = newShowChatPanel
+                
+                // If showing the panel, make sure we have the latest conversations
+                if (newShowChatPanel) {
+                    isManuallyLoadingChats = true
+                    chatViewModel.forceRefreshConversations()
+                    
+                    // The loading state will be reset by the LaunchedEffect(showChatPanel)
+                }
             }
         )
         
@@ -324,8 +369,7 @@ fun MainMapScreen(
                 )
             }
         }
-        
-        // Chat list panel (shows when user clicks on profile button)
+          // Chat list panel (shows when user clicks on profile button)
         if (showChatPanel) {
             ChatListPanel(
                 modifier = Modifier
@@ -337,48 +381,60 @@ fun MainMapScreen(
                     showChatPanel = false // Hide panel after selection
                 },
                 onClose = { showChatPanel = false },
-                isLoading = isLoadingChats
-            )
-        }
-        Surface(
-            modifier = Modifier.padding(top = 16.dp),
-            color = Color.Red,
-            contentColor = Color.White
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Chats",
-                    style = MaterialTheme.typography.titleLarge
-                )
-                
-                // Add test button in debug mode
-                if (com.example.childsafe.BuildConfig.DEBUG) {
-                    // Add option to create test conversation
-                    // Get test data helper outside of the onClick lambda
-                    val dataHelper = androidx.hilt.navigation.compose.hiltViewModel<com.example.childsafe.utils.TestDataHelper>()
-                    val localContext = androidx.compose.ui.platform.LocalContext.current
-
-                    TextButton(
-                        onClick = {
-                            dataHelper.createTestConversation(context = localContext)
-                        },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = AppColors.Primary
-                        )
-                    ) {
-                        Text("Add Test Chat")
+                isLoading = isLoadingChats,
+                onCreateNewChat = { 
+                    onUserSearchClick()
+                    showChatPanel = false // Hide panel after clicking create new chat
+                },
+                friendsViewModel = friendsViewModel,
+                onStartChatWithFriend = { friendId ->
+                    Timber.d("MainMapScreen: Starting chat with friend ID: $friendId")
+                    friendsViewModel.startChatWithFriend(friendId) { conversationId ->
+                        conversationId?.let {
+                            onConversationSelected(it)
+                            showChatPanel = false // Hide panel after selection
+                        }
                     }
                 }
-            }
+            )
+        }
+//        Surface(
+//            modifier = Modifier.padding(top = 16.dp),
+//            color = Color.Red,
+//            contentColor = Color.White
+//        ) {
+//            Row(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(horizontal = 16.dp, vertical = 8.dp),
+//                horizontalArrangement = Arrangement.SpaceBetween,
+//                verticalAlignment = Alignment.CenterVertically
+//            ) {
+//                Text(
+//                    text = "Chats",
+//                    style = MaterialTheme.typography.titleLarge
+//                )
+//
+//                // Add test button in debug mode                if (com.example.childsafe.BuildConfig.DEBUG) {
+//                    // Get test data helper outside of the onClick lambda
+//                    val dataHelper = androidx.hilt.navigation.compose.hiltViewModel<com.example.childsafe.utils.TestDataHelper>()
+//                    val localContext = androidx.compose.ui.platform.LocalContext.current
+//
+//                    TextButton(
+//                        onClick = {
+//                            dataHelper.createTestConversation(context = localContext)
+//                        },
+//                        colors = ButtonDefaults.textButtonColors(
+//                            contentColor = AppColors.Primary
+//                        )
+//                    ) {
+//                        Text("Add Test Chat")
+//                    }
+//                }
+//            }
         }
     }
-}
+
 
 /**
  * Moves the camera to show both the current location and destination location

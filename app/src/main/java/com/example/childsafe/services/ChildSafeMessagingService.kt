@@ -12,6 +12,7 @@ import com.example.childsafe.MainActivity
 import com.example.childsafe.R
 import com.example.childsafe.utils.ConversationReadEvent
 import com.example.childsafe.utils.EventBusManager
+import com.example.childsafe.utils.NewMessageEvent
 import com.example.childsafe.utils.StatusUpdateEvent
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -159,13 +160,53 @@ class ChildSafeMessagingService : FirebaseMessagingService() {
      * Handle chat message notifications
      */
     private fun handleChatMessage(data: Map<String, String>) {
-        // Try to handle as chat message
-        val handledAsChat = chatNotificationService.handleChatMessageNotification(data)
-        
-        // If it wasn't handled as a chat, process as general notification
-        if (!handledAsChat) {
-            val body = data["messageText"] ?: "New message"
-            sendNotification(body)
+        serviceScope.launch {
+            try {
+                // Extract message data
+                val messageId = data["messageId"] ?: return@launch
+                val conversationId = data["conversationId"] ?: return@launch
+                val senderId = data["senderId"] ?: return@launch
+                val senderName = data["senderName"] ?: "Unknown"
+                val messageText = data["messageText"]
+                val messageType = data["messageType"] ?: "text"
+                val timestampMillis = data["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
+                // Convert Long timestamp to Firebase Timestamp object
+                val timestamp = com.google.firebase.Timestamp(timestampMillis / 1000, ((timestampMillis % 1000) * 1000000).toInt())
+                
+                // Create a Message object from the notification data
+                val messageDeliveryService = FirebaseServiceLocator.getMessageDeliveryService()
+                val message = messageDeliveryService.getOrCreateMessageFromNotification(
+                    messageId = messageId,
+                    conversationId = conversationId,
+                    senderId = senderId,
+                    messageType = messageType,
+                    messageText = messageText,
+                    timestamp = timestamp
+                )
+                
+                // Broadcast using EventBus for active ViewModels
+                if (message != null) {
+                    EventBusManager.post(NewMessageEvent(
+                            message = message,
+                            conversationId = conversationId,
+                            senderId = senderId,
+                            senderName = senderName
+                    ))
+                }
+                
+                // Try to handle as chat notification
+                val handledAsChat = chatNotificationService.handleChatMessageNotification(data)
+                
+                // If it wasn't handled as a chat, process as general notification
+                if (!handledAsChat && messageText != null) {
+                    sendNotification(messageText)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error handling chat message notification")
+                // Fall back to simple notification if we couldn't parse the message
+                val messageText = data["messageText"] ?: "New message"
+                sendNotification(messageText)
+            }
         }
     }
 

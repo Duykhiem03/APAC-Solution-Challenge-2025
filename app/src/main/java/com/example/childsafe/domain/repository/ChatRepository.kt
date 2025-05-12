@@ -19,6 +19,12 @@ interface ChatRepository {
      * Exposed for use by ViewModels
      */
     val messageDeliveryService: MessageDeliveryService
+    
+    /**
+     * Get whether the current connection is online or offline
+     * @return True if online, false if offline
+     */
+    fun isOnline(): Boolean
 
     /**
      * Observes conversations for the current user
@@ -55,12 +61,13 @@ interface ChatRepository {
     
     /**
      * Sends a message in a conversation
+     * If offline, queues the message to be sent when connection is restored
      * @param conversationId ID of the conversation
      * @param text Text content of the message
      * @param messageType Type of message
      * @param mediaUrl URL for media content (if applicable)
      * @param location Location data (if applicable)
-     * @return ID of the sent message
+     * @return ID of the sent or queued message
      */
     suspend fun sendMessage(
         conversationId: String,
@@ -69,6 +76,11 @@ interface ChatRepository {
         mediaUrl: String? = null,
         location: MessageLocation? = null
     ): String
+    
+    /**
+     * Force retry sending failed messages
+     */
+    suspend fun retryFailedMessages()
     
     /**
      * Marks all messages in a conversation as read
@@ -99,6 +111,13 @@ interface ChatRepository {
      * @return The current user ID or null if not logged in
      */
     suspend fun getCurrentUserId(): String?
+    
+    /**
+     * Gets the current user ID synchronously (non-suspending)
+     * This is meant for UI components that can't use suspend functions
+     * @return The current user ID or null if not logged in
+     */
+    fun getCurrentUserIdSync(): String?
     
     /**
      * Gets older messages before a specified timestamp
@@ -133,4 +152,11 @@ interface ChatRepository {
      * @return Flow of user IDs who are currently online
      */
     suspend fun observeOnlineStatus(conversationId: String): Flow<List<String>>
+    
+    /**
+     * Retry sending a specific failed message
+     * @param messageId ID of the failed message to retry
+     * @return true if retry was successful, false otherwise
+     */
+    suspend fun retryMessage(messageId: String): Boolean
 }

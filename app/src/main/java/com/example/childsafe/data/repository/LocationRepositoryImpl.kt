@@ -147,8 +147,16 @@ class LocationRepositoryImpl @Inject constructor(
      */
     override fun getSavedDestinations(userId: String): Flow<Result<List<Destination>>> = flow {
         try {
-            // In the future: locationApiService.getSavedDestinations(userId)
-            emit(Result.success(getMockDestinations(null)))
+            // Check if user is authenticated through Firebase
+            val firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (firebaseUser != null) {
+                // User is authenticated, return saved destinations
+                // In a production app, you'd fetch real data here
+                emit(Result.success(getMockDestinations(null)))
+            } else {
+                // User is not authenticated, return error
+                emit(Result.failure(Exception("User not authenticated")))
+            }
         } catch (e: Exception) {
             emit(Result.failure(e))
         }

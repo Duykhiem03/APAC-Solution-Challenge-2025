@@ -1,7 +1,10 @@
 package com.example.childsafe.services
 
 import android.content.Context
+import com.example.childsafe.data.model.Message
 import com.example.childsafe.data.model.MessageStatus
+import com.example.childsafe.data.model.MessageType
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
@@ -264,6 +267,62 @@ class MessageDeliveryService @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Error processing newly delivered messages")
+        }
+    }
+
+    /**
+     * Creates or retrieves a Message object from notification data
+     * Used when receiving an FCM notification about a new message
+     * 
+     * @param messageId ID of the message
+     * @param conversationId ID of the conversation
+     * @param senderId ID of the sender
+     * @param messageType Type of message (text, image, etc.)
+     * @param messageText Text content of the message (may be null for non-text types)
+     * @param timestamp When the message was sent (milliseconds)
+     * @return Message object if successful, null otherwise
+     */
+    suspend fun getOrCreateMessageFromNotification(
+        messageId: String,
+        conversationId: String,
+        senderId: String,
+        messageType: String,
+        messageText: String?,
+        timestamp: Timestamp
+    ): com.example.childsafe.data.model.Message? {
+        return try {
+            withContext(Dispatchers.IO) {
+                // First check if message already exists in local database/cache
+                val localMessage = messagesCollection.document(messageId).get().await()
+                
+                if (localMessage.exists()) {
+                    // Message already exists, convert to model object
+                    localMessage.toObject(com.example.childsafe.data.model.Message::class.java)
+                } else {
+                    // Message doesn't exist locally, create a new model object
+                    val message = Message(
+                        id = messageId,
+                        conversationId = conversationId,
+                        sender = senderId,
+                        text = messageText.toString(),
+                        timestamp = timestamp,
+                        deliveryStatus = MessageStatus.DELIVERED.name, // Mark as delivered since we received it
+                        messageType = MessageType.valueOf(messageType.uppercase())
+                            .toString()
+                    )
+                    
+                    // Store in Firestore for future reference
+                    messagesCollection.document(messageId).set(message).await()
+                    
+                    // Mark as delivered instantly
+                    markMessageDelivered(messageId)
+                    
+                    message
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error creating message from notification")
+            null
         }
     }
 }

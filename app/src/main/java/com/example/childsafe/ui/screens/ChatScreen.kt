@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import com.example.childsafe.ui.components.MessageStateTrackerDialog
+import com.example.childsafe.ui.components.OnlineStatusIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +30,6 @@ import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.Message
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.ui.theme.AppColors
-import com.example.childsafe.ui.theme.AppDimensions
 import com.example.childsafe.ui.theme.ChildSafeTheme
 import com.example.childsafe.ui.viewmodel.MessageViewModel
 import kotlinx.coroutines.launch
@@ -48,8 +47,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.platform.LocalContext
 import com.example.childsafe.data.model.MessageStatus
+import com.example.childsafe.BuildConfig
+import com.example.childsafe.ui.viewmodel.ChatViewModel
+import timber.log.Timber
 
 /**
  * Screen for displaying and interacting with an individual chat conversation
@@ -62,7 +65,8 @@ import com.example.childsafe.data.model.MessageStatus
 fun ChatScreen(
     conversationId: String,
     onBackClick: () -> Unit,
-    messageViewModel: MessageViewModel = hiltViewModel()
+    messageViewModel: MessageViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     // Load conversation messages
     LaunchedEffect(conversationId) {
@@ -104,8 +108,8 @@ fun ChatScreen(
     // Monitor network connectivity 
     val connectivityManager = LocalContext.current.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     
-    // Update network status
-    LaunchedEffect(Unit) {
+    // Update network status and handle cleanup
+    DisposableEffect(Unit) {
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 messageViewModel.updateNetworkStatus(true)
@@ -119,6 +123,15 @@ fun ChatScreen(
         // Register the callback
         val networkRequest = NetworkRequest.Builder().build()
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
+        
+        // Cleanup when leaving this composable
+        onDispose {
+            try {
+                connectivityManager.unregisterNetworkCallback(networkCallback)
+            } catch (e: Exception) {
+                Timber.e(e, "Error unregistering network callback")
+            }
+        }
     }
     
     // Scroll state for message list
@@ -158,7 +171,9 @@ fun ChatScreen(
         // Process newly visible messages that need to be marked as read
         if (messages.isNotEmpty()) {
             messages.forEach { message ->
-                if (!message.read && message.sender != messageViewModel.getCurrentUserId() && !visibleMessages.contains(message.id)) {
+                val currentUserId = messageViewModel.getCurrentUserId()
+                // Only mark other users' messages as read
+                if (message.sender != currentUserId && !visibleMessages.contains(message.id)) {
                     // Add to tracking list
                     visibleMessages.add(message.id)
                     // Mark as read
@@ -168,14 +183,51 @@ fun ChatScreen(
         }
     }
 
-    Scaffold(
+    // Update the ViewModel's network status when connectivity changes
+    LaunchedEffect(isNetworkAvailable) {
+        messageViewModel.updateNetworkStatus(isNetworkAvailable)
+    }
+
+    // Start real-time updates for this conversation
+    LaunchedEffect(conversationId) {
+        // Initialize real-time message updates
+        messageViewModel.startRealtimeUpdates(conversationId)
+    }
+    
+    // Clean up when leaving this conversation
+    DisposableEffect(conversationId) {
+        onDispose {
+            messageViewModel.stopRealtimeUpdates()
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Network status bar that shows connectivity state and pending messages
+            if (!isNetworkAvailable || uiState.failedMessages.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (!isNetworkAvailable) Color.Red.copy(alpha = 0.8f)
+                            else Color.Blue.copy(alpha = 0.8f)
+                        )
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (!isNetworkAvailable) 
+                            "No internet connection" 
+                        else 
+                            "${uiState.failedMessages.size} message(s) pending",
+                        color = Color.White
+                    )
+                }
+            }
+            
+            Scaffold(
         topBar = {
-            // Network status bar (displayed when offline)
             Column {
-                NetworkStatusBar(
-                    isNetworkAvailable = isNetworkAvailable,
-                    onRetryClick = { messageViewModel.resendFailedMessages() }
-                )
                 
                 TopAppBar(
                     title = {
@@ -207,10 +259,14 @@ fun ChatScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Text(
-                                    text = "Online",
-                                    fontSize = 12.sp,
-                                    color = AppColors.GpsActive
+                                // Online status with animated indicator
+                                OnlineStatusIndicator(
+                                    isOnline = uiState.isOtherUserOnline,
+                                    lastSeen = if (!uiState.isOtherUserOnline && uiState.lastSeenTimestamp != null) {
+                                        com.example.childsafe.utils.DateTimeFormatter.formatLastSeen(
+                                            uiState.lastSeenTimestamp as? com.google.firebase.Timestamp
+                                        )
+                                    } else null
                                 )
                             }
                         }
@@ -414,8 +470,51 @@ fun ChatScreen(
                 )
             }
 
+            // Show retry button for failed messages
+            androidx.compose.animation.AnimatedVisibility(
+                visible = uiState.failedMessages.isNotEmpty(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = if (isOtherUserTyping) 96.dp else 64.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Red.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, Color.Red.copy(alpha = 0.5f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Failed messages",
+                            tint = Color.Red,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${uiState.failedMessages.size} messages failed to send",
+                            fontSize = 14.sp,
+                            color = Color.Red
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = { messageViewModel.forceRetryFailedMessages() },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.Red
+                            ),
+                            border = BorderStroke(1.dp, Color.Red)
+                        ) {
+                            Text("Retry All")
+                        }
+                    }
+                }
+            }
+            
             // Show typing indicator above the bottom bar
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = isOtherUserTyping,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -438,13 +537,25 @@ fun ChatScreen(
                 }
             }
             
-            // Show message state dialog when requested (debug only)
-            if (showMessageStateDialog) {
-                MessageStateTrackerDialog(
-                    conversationId = conversationId,
-                    onDismiss = { showMessageStateDialog = false }
+            // Debug dialog - only in debug mode
+            if (showMessageStateDialog && BuildConfig.DEBUG) {
+                AlertDialog(
+                    onDismissRequest = { showMessageStateDialog = false },
+                    title = { Text("Debug Information") },
+                    text = { 
+                        Text("Conversation ID: $conversationId\n" +
+                             "Message count: ${messages.size}\n" +
+                             "Network: ${if (isNetworkAvailable) "Connected" else "Disconnected"}")
+                    },
+                    confirmButton = {
+                        Button(onClick = { showMessageStateDialog = false }) {
+                            Text("Close")
+                        }
+                    }
                 )
             }
+        }
+    }
         }
     }
 }
@@ -547,7 +658,7 @@ fun MessageItem(
     val dateFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     
     // Format for delivery status
-    val isFailedMessage = message.deliveryStatus == MessageStatus.FAILED
+    val isFailedMessage = message.getDeliveryStatusEnum() == MessageStatus.FAILED
     
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -600,7 +711,7 @@ fun MessageItem(
                 )
                 .padding(12.dp)
         ) {
-            when (message.messageType) {
+            when (message.getMessageTypeEnum()) {
                 MessageType.TEXT -> {
                     Text(
                         text = message.text,
@@ -640,7 +751,7 @@ fun MessageItem(
                 Spacer(modifier = Modifier.width(4.dp))
                 
                 // Status icon
-                when (message.deliveryStatus) {
+                when (message.getDeliveryStatusEnum()) {
                     MessageStatus.SENDING -> {
                         Icon(
                             imageVector = Icons.Default.Schedule,
@@ -929,7 +1040,7 @@ fun ChatScreenPreview() {
             sender = "user2",
             text = "Hey, how's it going?",
             timestamp = com.google.firebase.Timestamp.now(),
-            messageType = MessageType.TEXT
+            messageType = MessageType.TEXT.toString()
         ),
         Message(
             id = "msg2",
@@ -937,7 +1048,7 @@ fun ChatScreenPreview() {
             sender = "currentUserId",
             text = "I'm good, thanks! Just checking on you.",
             timestamp = com.google.firebase.Timestamp.now(),
-            messageType = MessageType.TEXT
+            messageType = MessageType.TEXT.toString()
         ),
         Message(
             id = "msg3",
@@ -945,7 +1056,7 @@ fun ChatScreenPreview() {
             sender = "user2",
             text = "I'm at school now. Will be home in an hour.",
             timestamp = com.google.firebase.Timestamp.now(),
-            messageType = MessageType.TEXT
+            messageType = MessageType.TEXT.toString()
         ),
         Message(
             id = "msg4",
@@ -953,7 +1064,7 @@ fun ChatScreenPreview() {
             sender = "currentUserId",
             text = "Ok, let me know when you're home.",
             timestamp = com.google.firebase.Timestamp.now(),
-            messageType = MessageType.TEXT
+            messageType = MessageType.TEXT.toString()
         )
     )
     
@@ -1157,7 +1268,7 @@ private fun PreviewMessageItem(message: Message) {
                 )
                 .padding(12.dp)
         ) {
-            when (message.messageType) {
+            when (message.getMessageTypeEnum()) {
                 MessageType.TEXT -> {
                     Text(
                         text = message.text,

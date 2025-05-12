@@ -88,7 +88,7 @@ fun MessageStateTrackerDialog(
                     LazyColumn(
                         modifier = Modifier.weight(1f)
                     ) {
-                        items(messages.filter { it.sender == messageViewModel.getCurrentUserId() }) { message ->
+                        items(messages.filter { it.sender == messageViewModel.getCurrentUserIdSync() }) { message ->
                             MessageStateItem(message)
                             Divider(modifier = Modifier.padding(vertical = 8.dp))
                         }
@@ -144,7 +144,7 @@ private fun MessageStateItem(message: Message) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Status icon
-            when (message.deliveryStatus) {
+            when (message.getDeliveryStatusEnum()) {
                 MessageStatus.SENDING -> {
                     Icon(
                         imageVector = Icons.Default.Schedule,
@@ -191,7 +191,7 @@ private fun MessageStateItem(message: Message) {
             
             // Status text
             Text(
-                text = when (message.deliveryStatus) {
+                text = when (message.getDeliveryStatusEnum()) {
                     MessageStatus.SENDING -> "Sending..."
                     MessageStatus.SENT -> "Sent to server"
                     MessageStatus.DELIVERED -> "Delivered to recipient"
@@ -199,7 +199,7 @@ private fun MessageStateItem(message: Message) {
                     MessageStatus.FAILED -> "Failed to send"
                 },
                 fontSize = 14.sp,
-                color = when (message.deliveryStatus) {
+                color = when (message.getDeliveryStatusEnum()) {
                     MessageStatus.READ -> AppColors.Primary
                     MessageStatus.FAILED -> Color.Red
                     else -> MaterialTheme.colorScheme.onSurface
@@ -208,9 +208,9 @@ private fun MessageStateItem(message: Message) {
         }
         
         // Error message for failed messages
-        if (message.deliveryStatus == MessageStatus.FAILED && message.errorMessage.isNotEmpty()) {
+        if (message.getDeliveryStatusEnum() == MessageStatus.FAILED && message.errorMessage?.isNotEmpty() == true) {
             Text(
-                text = message.errorMessage,
+                text = message.errorMessage.toString(),
                 fontSize = 12.sp,
                 color = Color.Red,
                 modifier = Modifier.padding(top = 4.dp)
@@ -218,7 +218,7 @@ private fun MessageStateItem(message: Message) {
         }
         
         // Show read receipt details
-        if (message.deliveryStatus == MessageStatus.READ && message.readBy.isNotEmpty()) {
+        if (message.getDeliveryStatusEnum() == MessageStatus.READ && message.readBy.isNotEmpty()) {
             // Currently we just show how many people read it in group chats
             val readByCount = message.readBy.size - 1 // Exclude sender
             if (readByCount > 0) {

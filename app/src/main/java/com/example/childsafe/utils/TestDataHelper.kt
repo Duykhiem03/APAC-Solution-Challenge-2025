@@ -53,7 +53,7 @@ class TestDataHelper @Inject constructor(
                         hashMapOf(
                             "userId" to testContactId,
                             "displayName" to "Test Contact",
-                            "email" to "test.contact@example.com",
+                            "phoneNumber" to "+12345678900",
                             "photoUrl" to "",
                             "isOnline" to false,
                             "lastActive" to com.google.firebase.Timestamp.now()

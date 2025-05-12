@@ -27,21 +27,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Temporary fix: Sign in with the test account you created in Firebase
-        if (firebaseAuth.currentUser == null) {
-            Timber.d("No user logged in, performing automatic test login")
-            
-            // Sign in with the test account you created in Firebase Console
-            firebaseAuth.signInWithEmailAndPassword("test@childsafe.com", "testpassword123")
-                .addOnSuccessListener {
-                    Timber.d("Test login successful, UID: ${it.user?.uid}")
-                }
-                .addOnFailureListener { e ->
-                    Timber.e(e, "Test login failed: ${e.message}")
-                    // Even if sign-in fails, the app will continue to run with the mock user ID
-                }
-        } else {
+        // Log authentication state - using real phone authentication now
+        // The mock auto-login with test@childsafe.com has been removed
+        if (firebaseAuth.currentUser != null) {
             Timber.d("User already logged in: ${firebaseAuth.currentUser?.uid}")
+        } else {
+            Timber.d("No user logged in, will redirect to authentication screen")
         }
         
         setContent {

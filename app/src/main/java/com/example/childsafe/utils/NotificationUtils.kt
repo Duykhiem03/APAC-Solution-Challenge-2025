@@ -71,11 +71,15 @@ object NotificationUtils {
             val personBuilder = if (message.sender == currentUser.key) currentUser else sender.build()
             
             messagingStyle.addMessage(
-                when (message.messageType) {
+                when (message.getMessageTypeEnum()) {
                     com.example.childsafe.data.model.MessageType.TEXT -> message.text
                     com.example.childsafe.data.model.MessageType.IMAGE -> "📷 Image"
                     com.example.childsafe.data.model.MessageType.LOCATION -> "📍 Location"
                     com.example.childsafe.data.model.MessageType.AUDIO -> "🎤 Voice message"
+                    else -> {
+                        Timber.e("Unknown message type: ${message.getMessageTypeEnum()}")
+                        "Unknown message"
+                    }
                 },
                 timestamp,
                 personBuilder

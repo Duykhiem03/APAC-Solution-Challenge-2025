@@ -7,7 +7,7 @@
     "runtime": "nodejs18"
   },
   "firestore": {
-    "rules": "firestore/messaging-security-rules.rules",
+    "rules": "firestore/combined-security-rules.rules",
     "indexes": "firestore.indexes.json"
   }
 }

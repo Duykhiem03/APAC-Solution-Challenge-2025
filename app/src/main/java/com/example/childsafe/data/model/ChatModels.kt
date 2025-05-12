@@ -20,7 +20,13 @@ data class Conversation(
     val lastMessage: LastMessage? = null,
     val isGroup: Boolean = false,
     val groupName: String = "",
-    val groupAdmin: String = ""
+    val groupAdmin: String = "",
+    val version: Int? = 1, // For concurrency control
+    
+    // Online status properties (transient, not stored in Firestore)
+    @Transient val onlineParticipants: List<String> = emptyList(),
+    @Transient val isParticipantOnline: Boolean? = null,
+    @Transient val lastSeenTimestamp: Timestamp? = null
 )
 
 /**
@@ -64,12 +70,36 @@ data class Message(
     val timestamp: Timestamp = Timestamp.now(),
     val read: Boolean = false,
     val readBy: List<String> = emptyList(),
-    val messageType: MessageType = MessageType.TEXT,
-    val mediaUrl: String = "",
+    val messageType: String = MessageType.TEXT.toString(),
+    val mediaUrl: String? = null,
     val location: MessageLocation? = null,
-    val deliveryStatus: MessageStatus = MessageStatus.SENT,
-    val errorMessage: String = "" // For failed messages
-)
+    val deliveryStatus: String = MessageStatus.SENT.toString(),
+    val errorMessage: String? = null, // For failed messages
+    val version: Int? = 1, // For concurrency control
+    val clientTimestamp: Long? = null // For debugging and conflict resolution
+) {
+    /**
+     * Convert string message type to enum
+     */
+    fun getMessageTypeEnum(): MessageType {
+        return try {
+            MessageType.valueOf(messageType)
+        } catch (e: IllegalArgumentException) {
+            MessageType.TEXT
+        }
+    }
+    
+    /**
+     * Convert string delivery status to enum
+     */
+    fun getDeliveryStatusEnum(): MessageStatus {
+        return try {
+            MessageStatus.valueOf(deliveryStatus)
+        } catch (e: IllegalArgumentException) {
+            MessageStatus.SENDING
+        }
+    }
+}
 
 /**
  * Enum for message types

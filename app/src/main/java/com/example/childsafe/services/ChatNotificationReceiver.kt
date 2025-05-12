@@ -88,17 +88,32 @@ class ChatNotificationReceiver : BroadcastReceiver() {
     
     private fun handleMarkRead(context: Context, intent: Intent) {
         val conversationId = intent.getStringExtra("conversationId") ?: return
+        val messageId = intent.getStringExtra("messageId")
         
         scope.launch {
             try {
-                // Mark messages as read in repository
-                chatRepository.markConversationAsRead(conversationId)
+                if (messageId != null) {
+                    // If we have a specific message ID, just mark that one message as read
+                    messageDeliveryService.markMessageRead(messageId)
+                    
+                    Timber.d("Marked message $messageId as read")
+                } else {
+                    // Otherwise mark all messages in the conversation as read
+                    chatRepository.markConversationAsRead(conversationId)
+                    
+                    Timber.d("Marked conversation $conversationId as read")
+                }
+                
+                // Update EventBus about message status change if we have a specific message ID
+                if (messageId != null) {
+                    com.example.childsafe.utils.EventBusManager.post(
+                        com.example.childsafe.utils.StatusUpdateEvent(messageId, "READ")
+                    )
+                }
                 
                 // Cancel the notification
                 val notificationManager = NotificationManagerCompat.from(context)
                 notificationManager.cancel(conversationId.hashCode())
-                
-                Timber.d("Marked conversation $conversationId as read")
             } catch (e: Exception) {
                 Timber.e(e, "Error marking conversation as read")
             }
