@@ -158,25 +158,31 @@ class DebugMessagesRepository @Inject constructor() {
      * For testing purposes only
      */
     private fun addDelayedResponse(conversationId: String, originalText: String) {
-        kotlinx.coroutines.GlobalScope.launch {
+        // Use MainScope instead of GlobalScope to ensure UI updates properly
+        kotlinx.coroutines.MainScope().launch {
+            Timber.d("Debug: Preparing delayed response for conversation: $conversationId")
             kotlinx.coroutines.delay(2000) // 2 seconds delay
             
             // Create a response message from other participant
             val participants = _debugConversations.value.find { it.id == conversationId }?.participants
             val otherParticipant = participants?.firstOrNull { it != "current-user" } ?: "test-user-1"
             
+            Timber.d("Debug: Creating response message from participant: $otherParticipant")
             val responseMessage = SampleChatData.createNewMessage(
                 conversationId = conversationId,
                 text = "This is an auto-response to: \"$originalText\"",
                 sender = otherParticipant
             )
             
-            // Add response to debug messages
-            val updatedMap = _debugMessages.value
+            // Add response to debug messages - create a new map to ensure StateFlow emits an update
+            val updatedMap = _debugMessages.value.toMutableMap() // Create a new map
             val updatedMessages = updatedMap[conversationId]?.toMutableList() ?: mutableListOf()
             updatedMessages.add(responseMessage)
             updatedMap[conversationId] = updatedMessages
-            _debugMessages.value = updatedMap
+            
+            Timber.d("Debug: Updating _debugMessages with new message. Before update: ${_debugMessages.value[conversationId]?.size} messages")
+            _debugMessages.value = updatedMap // This triggers collectors
+            Timber.d("Debug: _debugMessages updated. After update: ${_debugMessages.value[conversationId]?.size} messages")
             
             // Update conversation last message
             val updatedConversations = _debugConversations.value.toMutableList()
@@ -199,6 +205,10 @@ class DebugMessagesRepository @Inject constructor() {
                 
                 // Sort conversations by updatedAt time (newest first)
                 val sortedConversations = updatedConversations.sortedByDescending { it.updatedAt }
+                
+                Timber.d("Debug: Auto-response added, updating state with new message")
+                _debugConversations.value = sortedConversations
+                Timber.d("Debug: State updated with auto-response message")
                 
                 _debugConversations.value = sortedConversations
             }
@@ -309,8 +319,11 @@ class DebugMessagesRepository @Inject constructor() {
      * @return Flow of messages for the conversation
      */
     fun observeMessages(conversationId: String): Flow<List<Message>> {
+        Timber.d("DebugMessagesRepository: Setting up observeMessages flow for conversationId: $conversationId")
         return _debugMessages.map { messagesMap ->
-            messagesMap[conversationId] ?: emptyList()
+            val messages = messagesMap[conversationId] ?: emptyList()
+            Timber.d("DebugMessagesRepository: Flow emitting ${messages.size} messages for conversationId: $conversationId")
+            messages
         }
     }
 }

@@ -156,24 +156,41 @@ class MessageViewModel @Inject constructor(
                 val conversations = debugMessagesRepository.debugConversations.value
                 val conversation = conversations.find { it.id == conversationId }
                 
-                // Get messages from debug repository
-                val messages = debugMessagesRepository.getMessagesForConversation(conversationId)
-                
-                if (conversation != null) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        conversation = conversation,
-                        messages = messages,
-                        errorMessage = null
-                    )
-                    
-                    Timber.d("Loaded debug conversation $conversationId with ${messages.size} messages")
-                } else {
+                if (conversation == null) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = "Debug conversation not found: $conversationId"
                     )
                     Timber.w("Debug conversation $conversationId not found. Available IDs: ${conversations.map { it.id }}")
+                    return@launch
+                }
+                
+                // Update conversation immediately
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    conversation = conversation,
+                    errorMessage = null
+                )
+                
+                // Start observing messages in real-time
+                Timber.d("MessageViewModel: Starting to observe debug messages in real-time for conversation: $conversationId")
+                
+                // First, get current messages to initialize the UI
+                val initialMessages = debugMessagesRepository.getMessagesForConversation(conversationId)
+                _uiState.value = _uiState.value.copy(
+                    messages = initialMessages
+                )
+                Timber.d("MessageViewModel: Initial messages loaded: ${initialMessages.size}")
+                
+                // Then collect updates
+                debugMessagesRepository.observeMessages(conversationId).collect { messages ->
+                    val oldSize = _uiState.value.messages.size
+                    Timber.d("MessageViewModel: Flow update received! Old size: $oldSize, New size: ${messages.size}")
+                    
+                    if (messages.size != oldSize) {
+                        Timber.d("MessageViewModel: Message count changed, updating UI")
+                        _uiState.value = _uiState.value.copy(messages = messages)
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

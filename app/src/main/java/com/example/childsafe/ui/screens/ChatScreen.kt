@@ -95,6 +95,11 @@ fun ChatScreen(
     val context = LocalContext.current
     val buildConfig = remember { BuildConfigHelper.getBuildConfigStrategy(context) }
     
+    // Monitor message updates
+    LaunchedEffect(messages.size) {
+        Timber.d("ChatScreen: Messages size changed to ${messages.size}")
+    }
+    
     // Start observing user status (typing/online)
     LaunchedEffect(conversationId) {
         messageViewModel.startObservingUserStatus()
@@ -653,8 +658,16 @@ fun MessageItem(
     message: Message,
     onRetryClick: (String) -> Unit = {}
 ) {
-    // Get current user ID from Firebase Auth
-    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown_user"
+    // Get current user ID from Firebase Auth or use "current-user" for debugging
+    val firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    val currentUserId = if (BuildConfig.DEBUG) {
+        "current-user"
+    } else {
+        firebaseUser?.uid ?: "current-user"
+    }
+    
+    // Log the user ID and message sender for debugging
+    Timber.d("MessageItem - currentUserId: $currentUserId, messageSender: ${message.sender}, isMatch: ${message.sender == currentUserId}")
     
     val isSentByMe = message.sender == currentUserId
     val messageAlignment = if (isSentByMe) Alignment.End else Alignment.Start
@@ -849,6 +862,11 @@ fun PullToRefreshChat(
                         )
                     }
                 }
+            }
+            
+            // Log messages list updates
+            if (messages.isNotEmpty()) {
+                Timber.d("ChatScreen: Rendering ${messages.size} messages")
             }
             
             // Message items
