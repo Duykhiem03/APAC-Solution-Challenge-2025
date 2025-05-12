@@ -80,6 +80,7 @@ class PhoneAuthViewModel @Inject constructor(
                                         timber.log.Timber.e(e, "Error in profile creation: ${e.message}")
                                     }
                                 }
+                                }
                             } else {
                                 timber.log.Timber.e("No phone number available for profile creation during auto-verification")
                             }
@@ -172,24 +173,48 @@ class PhoneAuthViewModel @Inject constructor(
                                 // This ensures the profile creation completes even if the parent coroutine is cancelled
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
                                     try {
-                                        var userProfile = userRepository.createUserAfterPhoneAuth(phoneNum)
-                                        if (userProfile != null) {
-                                            timber.log.Timber.d("User profile created successfully: $userProfile")
+                                        // Ensure the user is properly authenticated before trying to write to Firestore
+                                        val currentUser = authRepository.getCurrentUser()
+                                        if (currentUser == null) {
+                                            timber.log.Timber.e("Cannot create profile: getCurrentUser() returned null")
                                         } else {
-                                            // If first attempt fails, wait a bit and try again (Firebase might need time)
-                                            timber.log.Timber.w("First attempt to create user profile failed, retrying after delay...")
-                                            kotlinx.coroutines.delay(1500)  // Wait 1.5 seconds for Firebase to properly initialize
-                                            userProfile = userRepository.createUserAfterPhoneAuth(phoneNum)
+                                            timber.log.Timber.d("Authenticated user confirmed before profile creation: ${currentUser.uid}")
+
+                                            // First attempt - with delay to ensure Firebase Auth is fully initialized
+                                            kotlinx.coroutines.delay(1000)  // Wait 1 second for auth to fully initialize
+                                            timber.log.Timber.d("Starting first attempt to create profile")
+                                            var userProfile = userRepository.createUserAfterPhoneAuth(phoneNum)
                                             
                                             if (userProfile != null) {
-                                                timber.log.Timber.d("User profile created successfully on second attempt: $userProfile")
+                                                timber.log.Timber.d("User profile created successfully on first attempt: $userProfile")
                                             } else {
-                                                timber.log.Timber.w("Second attempt to create user profile failed")
+                                                // Second attempt with increased delay
+                                                timber.log.Timber.w("First attempt to create user profile failed, retrying after delay...")
+                                                kotlinx.coroutines.delay(3000)  // Wait 3 seconds
+                                                
+                                                // Recheck authentication to ensure it's still valid
+                                                val recheckUser = authRepository.getCurrentUser()
+                                                if (recheckUser != null) {
+                                                    timber.log.Timber.d("Authentication still valid for second attempt")
+                                                    userProfile = userRepository.createUserAfterPhoneAuth(phoneNum)
+                                                    
+                                                    if (userProfile != null) {
+                                                        timber.log.Timber.d("User profile created successfully on second attempt: $userProfile")
+                                                    } else {
+                                                        timber.log.Timber.w("Second attempt to create user profile failed")
+                                                    }
+                                                } else {
+                                                    timber.log.Timber.e("Auth user became null before second attempt")
+                                                }
                                             }
                                         }
                                     } catch (e: Exception) {
                                         timber.log.Timber.e(e, "Error in profile creation: ${e.message}")
+                                        e.printStackTrace()
                                     }
+                                    
+                                    // Always emit success even if profile creation failed - user can update profile later
+                                    timber.log.Timber.d("Proceeding with auth success regardless of profile creation result")
                                 }
                             } else {
                                 timber.log.Timber.e("No phone number available")
