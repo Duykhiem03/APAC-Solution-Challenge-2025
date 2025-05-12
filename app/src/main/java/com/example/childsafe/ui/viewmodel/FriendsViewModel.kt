@@ -2,6 +2,7 @@ package com.example.childsafe.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.childsafe.BuildConfig
 import com.example.childsafe.data.model.FriendRequest
 import com.example.childsafe.data.model.UserProfile
 import com.example.childsafe.domain.repository.FriendRepository
@@ -14,12 +15,13 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import kotlinx.coroutines.async
-import com.example.childsafe.BuildConfig
+import com.example.childsafe.utils.buildconfig.BuildConfigStrategy
 
 @HiltViewModel
 class FriendsViewModel @Inject constructor(
     private val friendRepository: FriendRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val buildConfig: BuildConfigStrategy
 ) : ViewModel() {
 
     // UI state
@@ -27,7 +29,7 @@ class FriendsViewModel @Inject constructor(
     val uiState: StateFlow<FriendsUiState> = _uiState
 
     init {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // In debug mode, use sample data instead of repository data
             loadSampleData()
         } else {

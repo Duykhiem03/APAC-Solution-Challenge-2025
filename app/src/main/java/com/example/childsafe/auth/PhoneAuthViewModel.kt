@@ -80,7 +80,6 @@ class PhoneAuthViewModel @Inject constructor(
                                         timber.log.Timber.e(e, "Error in profile creation: ${e.message}")
                                     }
                                 }
-                                }
                             } else {
                                 timber.log.Timber.e("No phone number available for profile creation during auto-verification")
                             }

@@ -29,13 +29,9 @@ import javax.inject.Singleton
 abstract class RepositoryModule {
 
     /**
-     * Binds ChatRepository implementation
+     * Note: ChatRepository binding is now handled by ChatRepositoryStrategyModule
+     * to enable strategy pattern for switching between debug and production implementations
      */
-    @Binds
-    @Singleton
-    abstract fun bindChatRepository(
-        chatRepositoryImpl: ChatRepositoryImpl
-    ): ChatRepository
 
     /**
      * Binds StorageRepository implementation

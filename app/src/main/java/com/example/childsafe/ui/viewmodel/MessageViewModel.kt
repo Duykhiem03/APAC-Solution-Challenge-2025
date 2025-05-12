@@ -14,6 +14,7 @@ import com.example.childsafe.domain.repository.StorageRepository
 import com.example.childsafe.test.SampleChatData
 import com.example.childsafe.utils.EventBusManager
 import com.example.childsafe.utils.NewMessageEvent
+import com.example.childsafe.utils.buildconfig.BuildConfigStrategy
 import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -44,7 +45,8 @@ import java.util.Date
 class MessageViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val storageRepository: StorageRepository,
-    private val debugMessagesRepository: DebugMessagesRepository
+    private val debugMessagesRepository: DebugMessagesRepository,
+    private val buildConfig: BuildConfigStrategy
 ) : ViewModel() {
 
     // UI State for the chat message screen
@@ -121,7 +123,7 @@ class MessageViewModel @Inject constructor(
         _conversationId.value = conversationId
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // In debug mode, load sample conversation data
             loadDebugConversation(conversationId)
         } else {
@@ -266,7 +268,7 @@ class MessageViewModel @Inject constructor(
         
         _uiState.value = _uiState.value.copy(isSendingMessage = true, currentInput = "")
         
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // In debug mode, send message through DebugMessagesRepository
             val success = debugMessagesRepository.sendDebugMessage(conversationId, text)
             
@@ -363,7 +365,7 @@ class MessageViewModel @Inject constructor(
     fun startObservingUserStatus() {
         val conversationId = _conversationId.value ?: return
         
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // In debug mode, just set the other user as online
             _uiState.value = _uiState.value.copy(
                 isOtherUserOnline = true
@@ -406,7 +408,7 @@ class MessageViewModel @Inject constructor(
      * In debug mode, this only logs the action
      */
     fun markMessagesDelivered() {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("Debug mode: Marking messages as delivered")
             return
         }
@@ -429,7 +431,7 @@ class MessageViewModel @Inject constructor(
      * In debug mode, this only logs the action
      */
     fun markMessageAsRead(messageId: String) {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("Debug mode: Marking message $messageId as read")
             return
         }
@@ -450,7 +452,7 @@ class MessageViewModel @Inject constructor(
      * In debug mode, returns "current-user"
      */
     fun getCurrentUserIdSync(): String {
-        return if (BuildConfig.DEBUG) {
+        return if (buildConfig.isDebug) {
             "current-user"
         } else {
             // In production, use Firebase Auth directly
@@ -465,7 +467,7 @@ class MessageViewModel @Inject constructor(
      * In debug mode, returns "current-user"
      */
     suspend fun getCurrentUserId(): String {
-        return if (BuildConfig.DEBUG) {
+        return if (buildConfig.isDebug) {
             "current-user"
         } else {
             // In production, get the actual user ID
@@ -483,7 +485,7 @@ class MessageViewModel @Inject constructor(
      * In debug mode, this only logs the action
      */
     fun startRealtimeUpdates(conversationId: String) {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("Debug mode: Starting real-time updates for conversation $conversationId")
             return
         }
@@ -503,7 +505,7 @@ class MessageViewModel @Inject constructor(
      * In debug mode, this only logs the action
      */
     fun stopRealtimeUpdates() {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("Debug mode: Stopping real-time updates")
             return
         }
@@ -527,7 +529,7 @@ class MessageViewModel @Inject constructor(
         
         _uiState.value = _uiState.value.copy(isLoadingOlderMessages = true)
         
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // In debug mode, just simulate loading with a delay
             viewModelScope.launch {
                 Timber.d("Debug mode: Simulating loading older messages")
@@ -625,7 +627,7 @@ class MessageViewModel @Inject constructor(
      * @param messageId ID of the failed message to retry
      */
     fun retryMessage(messageId: String) {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("Debug mode: Retrying message $messageId")
             
             // Find the message in our list
@@ -702,7 +704,7 @@ class MessageViewModel @Inject constructor(
         
         Timber.d("Retrying ${failedMessageIds.size} failed messages")
         
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // In debug mode, simulate retrying all failed messages
             val messages = _uiState.value.messages.toMutableList()
             

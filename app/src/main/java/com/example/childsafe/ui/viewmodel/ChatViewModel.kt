@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.childsafe.BuildConfig
 import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.Message
+import com.example.childsafe.utils.buildconfig.BuildConfigStrategy
 import com.example.childsafe.data.model.UserChats
 import com.example.childsafe.data.repository.DebugMessagesRepository
 import com.example.childsafe.domain.repository.ChatRepository
@@ -34,7 +35,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
-    private val debugMessagesRepository: DebugMessagesRepository
+    private val debugMessagesRepository: DebugMessagesRepository,
+    private val buildConfig: BuildConfigStrategy
 ) : ViewModel() {
 
     // UI State for the chat list screen
@@ -57,7 +59,7 @@ class ChatViewModel @Inject constructor(
 
     init {
         // Load conversations when ViewModel is created
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             loadSampleData()
         } else {
             loadConversations()
@@ -121,10 +123,10 @@ class ChatViewModel @Inject constructor(
      * Loads conversations for the current user from the repository
      */
     fun loadConversations() {
-        Timber.d("ChatViewModel: loadConversations() called, BuildConfig.DEBUG=${BuildConfig.DEBUG}")
+        Timber.d("ChatViewModel: loadConversations() called, isDebug=${buildConfig.isDebug}")
         
         // In debug mode, we should load sample data instead
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("ChatViewModel: In DEBUG mode, redirecting to loadSampleData()")
             loadSampleData()
             return
@@ -174,7 +176,7 @@ class ChatViewModel @Inject constructor(
     fun createConversation(participantIds: List<String>, isGroup: Boolean = false, groupName: String = "") {
         viewModelScope.launch {
             try {
-                if (BuildConfig.DEBUG) {
+                if (buildConfig.isDebug) {
                     // Use the debug repository to create a conversation
                     val conversationId = debugMessagesRepository.createDebugConversation(
                         participantIds,
@@ -207,7 +209,7 @@ class ChatViewModel @Inject constructor(
         _selectedConversationId.value = conversationId
         
         // Mark messages as read when selecting a conversation
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             // Update unread count in debug mode
             val userChats = _uiState.value.userChats
             if (userChats != null) {
@@ -262,7 +264,7 @@ class ChatViewModel @Inject constructor(
      * Gets messages for a specific conversation (only in debug mode)
      */
     fun getMessagesForConversation(conversationId: String): List<Message> {
-        return if (BuildConfig.DEBUG) {
+        return if (buildConfig.isDebug) {
             debugMessagesRepository.getMessagesForConversation(conversationId)
         } else {
             emptyList() // In production, this is handled by MessageViewModel
@@ -327,7 +329,7 @@ class ChatViewModel @Inject constructor(
      * This is a workaround for cases where the flow collection doesn't trigger properly
      */
     fun forceRefreshConversations() {
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.d("ChatViewModel: Forcing refresh of conversations from debug repository")
             viewModelScope.launch {
                 try {

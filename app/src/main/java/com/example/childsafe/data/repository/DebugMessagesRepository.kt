@@ -2,10 +2,14 @@ package com.example.childsafe.data.repository
 
 import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.Message
+import com.example.childsafe.data.model.UserChats
+import com.example.childsafe.data.model.UserConversation
 import com.example.childsafe.test.SampleChatData
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -274,6 +278,39 @@ class DebugMessagesRepository @Inject constructor() {
         } catch (e: Exception) {
             Timber.e(e, "Error checking initialization")
             return "Error checking initialization: ${e.message}"
+        }
+    }
+
+    /**
+     * Create a UserChats object from a list of conversations
+     * @param conversations List of conversations to convert
+     * @return UserChats object representing the conversations for the current user
+     */
+    fun createUserChats(conversations: List<Conversation>): UserChats {
+        return UserChats(
+            userId = "current-user",
+            conversations = conversations.map { conversation ->
+                // Count unread messages
+                val unreadCount = _debugMessages.value[conversation.id]?.count { 
+                    it.sender != "current-user" && it.read != true 
+                } ?: 0
+                
+                UserConversation(
+                    conversationId = conversation.id,
+                    unreadCount = unreadCount
+                )
+            }
+        )
+    }
+    
+    /**
+     * Observe messages for a specific conversation
+     * @param conversationId ID of the conversation to observe
+     * @return Flow of messages for the conversation
+     */
+    fun observeMessages(conversationId: String): Flow<List<Message>> {
+        return _debugMessages.map { messagesMap ->
+            messagesMap[conversationId] ?: emptyList()
         }
     }
 }

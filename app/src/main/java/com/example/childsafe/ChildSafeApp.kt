@@ -7,6 +7,7 @@ import com.example.childsafe.services.FirebaseMessagingManager
 import com.example.childsafe.services.FirebaseServiceLocator
 import com.example.childsafe.services.MessageDeliveryService
 import com.example.childsafe.services.MessageSyncService
+import com.example.childsafe.utils.buildconfig.BuildConfigStrategy
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -35,9 +36,11 @@ class ChildSafeApp() : Application(), Configuration.Provider {
     
     @Inject
     lateinit var authRepository: com.example.childsafe.auth.FirebaseAuthRepository
+      @Inject
+    override lateinit var workManagerConfiguration: Configuration
     
     @Inject
-    override lateinit var workManagerConfiguration: Configuration
+    lateinit var buildConfig: BuildConfigStrategy
     
     // Application scope for coroutines
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -46,7 +49,7 @@ class ChildSafeApp() : Application(), Configuration.Provider {
         super.onCreate()
         
         // Initialize Timber for logging
-        if (BuildConfig.DEBUG) {
+        if (buildConfig.isDebug) {
             Timber.plant(Timber.DebugTree())
         }
         
@@ -79,9 +82,8 @@ class ChildSafeApp() : Application(), Configuration.Provider {
         applicationScope.launch {
             try {
                 firebaseMessagingManager.initializeToken()
-                
-                // Optional: Log the token for debugging purposes
-                if (BuildConfig.DEBUG) {
+                  // Optional: Log the token for debugging purposes
+                if (buildConfig.isDebug) {
                     FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                         if (task.isSuccessful) {
                             Timber.d("FCM token: ${task.result}")

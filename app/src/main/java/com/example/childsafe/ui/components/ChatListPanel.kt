@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import com.example.childsafe.utils.buildconfig.BuildConfigStrategy
 import com.example.childsafe.ui.components.FriendItem
 import com.example.childsafe.ui.components.FriendRequestItem
 import com.example.childsafe.ui.components.OnlineStatusDot
@@ -79,7 +80,9 @@ fun ChatListPanel(
     onStartChatWithFriend: (String) -> Unit = {}
 ) {
     // Add debug logging to see what's happening
-    Timber.d("ChatListPanel: Received ${conversations.size} conversations, isLoading=$isLoading, BuildConfig.DEBUG=${BuildConfig.DEBUG}")
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val buildConfig = remember { com.example.childsafe.utils.BuildConfigHelper.getBuildConfigStrategy(context) }
+    Timber.d("ChatListPanel: Received ${conversations.size} conversations, isLoading=$isLoading, isDebug=${buildConfig.isDebug}")
     
     // Debug log each conversation in a clearly visible format
     if (conversations.isEmpty()) {
@@ -298,7 +301,9 @@ fun ChatListPanel(
                                 .weight(1f)
                         ) {
                             // Log the current state for debugging
-                            val isDebug = BuildConfig.DEBUG
+                            val localContext = androidx.compose.ui.platform.LocalContext.current
+                            val localBuildConfig = remember { com.example.childsafe.utils.BuildConfigHelper.getBuildConfigStrategy(localContext) }
+                            val isDebug = localBuildConfig.isDebug
                             LaunchedEffect(conversations, isLoading) {
                                 timber.log.Timber.d("ChatListPanel: Debug=${isDebug}, isLoading=$isLoading, conversations=${conversations.size}")
                                 conversations.forEachIndexed { index, convo ->
@@ -322,7 +327,7 @@ fun ChatListPanel(
                                 )
                                 
                                 // Log this situation
-                                timber.log.Timber.d("ChatListPanel: No conversations to display, BuildConfig.DEBUG=${BuildConfig.DEBUG}")
+                                timber.log.Timber.d("ChatListPanel: No conversations to display, isDebug=${isDebug}")
                             } else {
                                 // Log that we're displaying conversations
                                 timber.log.Timber.d("ChatListPanel: Displaying ${conversations.size} conversations in LazyColumn")
@@ -858,7 +863,9 @@ fun ConversationItem(
     val avatarInitial = displayName.firstOrNull()?.toString() ?: "?"
     
     // In debug mode, highlight test conversations
-    val displayDebugLabel = BuildConfig.DEBUG && conversation.id.startsWith("test-")
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val buildConfig = remember { com.example.childsafe.utils.BuildConfigHelper.getBuildConfigStrategy(context) }
+    val displayDebugLabel = buildConfig.isDebug && conversation.id.startsWith("test-")
     
     Row(
         modifier = Modifier

@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.childsafe.data.model.MessageStatus
 import com.example.childsafe.BuildConfig
 import com.example.childsafe.ui.viewmodel.ChatViewModel
+import com.example.childsafe.utils.BuildConfigHelper
 import timber.log.Timber
 
 /**
@@ -89,6 +90,10 @@ fun ChatScreen(
     
     // Debug dialog state
     var showMessageStateDialog by remember { mutableStateOf(false) }
+    
+    // Get buildConfig for the entire component
+    val context = LocalContext.current
+    val buildConfig = remember { BuildConfigHelper.getBuildConfigStrategy(context) }
     
     // Start observing user status (typing/online)
     LaunchedEffect(conversationId) {
@@ -287,7 +292,7 @@ fun ChatScreen(
                         }
                         
                         // Add notification test menu (only in debug builds)
-                        if (com.example.childsafe.BuildConfig.DEBUG) {
+                        if (buildConfig.isDebug) {
                             var showMenu by remember { mutableStateOf(false) }
                             
                             Box {
@@ -538,7 +543,7 @@ fun ChatScreen(
             }
             
             // Debug dialog - only in debug mode
-            if (showMessageStateDialog && BuildConfig.DEBUG) {
+            if (showMessageStateDialog && buildConfig.isDebug) {
                 AlertDialog(
                     onDismissRequest = { showMessageStateDialog = false },
                     title = { Text("Debug Information") },
