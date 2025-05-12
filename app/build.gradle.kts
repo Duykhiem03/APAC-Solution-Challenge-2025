@@ -125,6 +125,9 @@ dependencies {
     // Hilt integration with WorkManager
     implementation("androidx.hilt:hilt-work:1.2.0")
     kapt("androidx.hilt:hilt-compiler:1.2.0")
+    
+    // Google's libphonenumber for phone number formatting and country codes
+    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.22")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
