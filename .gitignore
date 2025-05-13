@@ -80,6 +80,9 @@ venv/
 serviceAccountKey.json
 .firebase/
 
+# Firebase Functions specific
+firebase/functions/node_modules/
+
 # IDE files
 .vscode/
 

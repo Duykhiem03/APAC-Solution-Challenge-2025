@@ -39,4 +39,21 @@
     <string name="error_location_unavailable">Location unavailable</string>
     <string name="error_destination_not_found">Destination not found</string>
     <string name="error_search_failed">Search failed</string>
+    
+    <!-- FCM notification strings -->
+    <string name="default_notification_channel_id">general_channel</string>
+    <string name="fcm_message">ChildSafe Notification</string>
+    <string name="msg_token_fmt">FCM registration token: %s</string>
+    <string name="channel_name">General Notifications</string>
+    <string name="channel_description">General app notifications</string>
+    <string name="channel_sos_name">Emergency SOS Alerts</string>
+    <string name="channel_sos_description">Critical emergency alerts</string>
+    <string name="channel_chat_name">Chat Messages</string>
+    <string name="channel_chat_description">Notifications for new messages</string>
+    <string name="reply">Reply</string>
+    <string name="mark_read">Mark as read</string>
+    <string name="new_messages">New messages</string>
+    <string name="you_have_new_messages">You have new messages</string>
+    <string name="channel_important_name">Important Messages</string>"
+    <string name="channel_important_description">Messages that require your immediate attention</string>"
 </resources>

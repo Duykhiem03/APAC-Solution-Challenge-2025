@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
 buildscript {
@@ -10,5 +11,7 @@ buildscript {
         classpath("com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1")
         // Add Hilt classpath
         classpath("com.google.dagger:hilt-android-gradle-plugin:2.51")
+        // Add Google Services classpath
+        classpath("com.google.gms:google-services:4.4.0")
     }
 }

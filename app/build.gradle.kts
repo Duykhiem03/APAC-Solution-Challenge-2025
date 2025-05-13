@@ -7,6 +7,9 @@ plugins {
     id("com.google.dagger.hilt.android")
     // Add kapt plugin for annotation processing
     id("kotlin-kapt")
+    // Add Google services plugin for Firebase
+    id("com.google.gms.google-services")
+
 }
 
 android {
@@ -15,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.childsafe"
-        minSdk = 25
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -58,12 +61,17 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.9")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    
+    // Material compose with pull-to-refresh support
+    implementation("androidx.compose.material:material:1.7.8")
 
-
-    // Google Maps
-    implementation("com.google.maps.android:maps-compose:2.15.0")
+    // Google Play Services - standardized versions
+    implementation("com.google.android.gms:play-services-base:18.2.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-    // Google Maps Utils (for PolyUtil)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    
+    // Google Maps Compose
+    implementation("com.google.maps.android:maps-compose:2.15.0")
     implementation("com.google.maps.android:android-maps-utils:3.5.3")
     
     // Google Places
@@ -72,9 +80,6 @@ dependencies {
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-
-    // Location services
-    implementation("com.google.android.gms:play-services-location:21.1.0")
 
     // Permissions handling
     implementation("com.google.accompanist:accompanist-permissions:0.30.1")
@@ -97,6 +102,32 @@ dependencies {
 
     // Jsoup for HTML parsing (used in route instructions)
     implementation("org.jsoup:jsoup:1.17.1")
+
+    // Firebase dependencies
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-functions")
+    
+    // Room dependencies for local database storage
+    val roomVersion = "2.6.1"
+    implementation("androidx.room:room-runtime:$roomVersion")
+    kapt("androidx.room:room-compiler:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion") // Kotlin Extensions for Room
+    
+    // WorkManager for background processing
+    val workVersion = "2.9.0"
+    implementation("androidx.work:work-runtime-ktx:$workVersion")
+    
+    // Hilt integration with WorkManager
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    kapt("androidx.hilt:hilt-compiler:1.2.0")
+    
+    // Google's libphonenumber for phone number formatting and country codes
+    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.22")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

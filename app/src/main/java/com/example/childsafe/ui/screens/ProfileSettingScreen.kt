@@ -44,14 +44,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.ChildSafeTheme
 
 @Composable
-fun ProfileSettingScreen(onComplete: () -> Unit) {
+fun ProfileSettingScreen(
+    onComplete: () -> Unit,
+    onSignOut: () -> Unit = {} // Add callback for sign out navigation
+) {
     var selectedColor by remember { mutableStateOf(Color.LightGray) }
 
     var selectedButton by remember { mutableStateOf("none") }
     var profile by remember { mutableStateOf(StudentProfile()) }
+    
+    // Local state for showing confirmation dialog
+    var showSignOutDialog by remember { mutableStateOf(false) }
 
 
     Column(
@@ -120,9 +127,9 @@ fun ProfileSettingScreen(onComplete: () -> Unit) {
         ProfileFormFields(profile = profile, onProfileChange = { profile = it })
 
         Spacer(modifier = Modifier.height(16.dp))
-
         Button(
             onClick = onComplete,
+            border = BorderStroke(1.dp, Color.Black),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
@@ -135,6 +142,53 @@ fun ProfileSettingScreen(onComplete: () -> Unit) {
                 text = "Hoàn tất",
                 color = Color.Black,
                 fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(24.dp))
+          // Sign Out Button
+        OutlinedButton(
+            onClick = { showSignOutDialog = true },
+            border = BorderStroke(1.dp, Color.Red),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = Color.Red
+            )
+        ) {
+            Text(
+                text = "Đăng xuất",
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        // Sign Out Confirmation Dialog
+        if (showSignOutDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showSignOutDialog = false },
+                title = { Text("Xác nhận đăng xuất") },
+                text = { Text("Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng không?") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showSignOutDialog = false
+                            com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                            onSignOut() // Call the callback to handle navigation
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Đăng xuất", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { showSignOutDialog = false }
+                    ) {
+                        Text("Hủy")
+                    }
+                }
             )
         }
     }

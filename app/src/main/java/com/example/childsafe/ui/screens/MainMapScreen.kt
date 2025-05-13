@@ -1,14 +1,31 @@
 package com.example.childsafe.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,19 +36,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.childsafe.R
+import com.example.childsafe.data.model.Conversation
 import com.example.childsafe.data.model.Destination
+import com.example.childsafe.data.model.UserChats
 import com.example.childsafe.domain.model.navigation.Route
 import com.example.childsafe.ui.components.BottomNavigationButtons
+import com.example.childsafe.ui.components.ChatListPanel
 import com.example.childsafe.ui.components.GPSIndicator
+import com.example.childsafe.ui.components.LocationSelectionPanel
 import com.example.childsafe.ui.navigation.NavigationViewModel
 import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.AppDimensions
+import com.example.childsafe.ui.viewmodel.ChatViewModel
+import com.example.childsafe.ui.viewmodel.FriendsViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -47,23 +71,20 @@ import kotlinx.coroutines.delay
 import timber.log.Timber
 
 /**
- * Main map screen showing user's current location and selected destination
- *
- * @param selectedDestination The destination that was selected by the user, if any
- * @param onNavigateToDestination Callback when user wants to navigate to a destination
- * @param onSOSClick Callback for when the SOS button is clicked
- * @param onProfileClick Callback for when the profile button is clicked
- * @param locationViewModel ViewModel for location data
- * @param navigationViewModel ViewModel for handling route calculations
+ * Main map screen showing user's current location, destination, and safety information
  */
 @Composable
 fun MainMapScreen(
-    selectedDestination: Destination? = null,
-    onNavigateToDestination: (Destination) -> Unit,
+    onNavigateToDestination: () -> Unit = {},
     onSOSClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onConversationSelected: (String) -> Unit = {},
+    onUserSearchClick: () -> Unit = {},
+    selectedDestination: Destination? = null,
     locationViewModel: LocationViewModel = hiltViewModel(),
-    navigationViewModel: NavigationViewModel = hiltViewModel()
+    chatViewModel: ChatViewModel = hiltViewModel(),
+    navigationViewModel: NavigationViewModel = hiltViewModel(),
+    friendsViewModel: FriendsViewModel = hiltViewModel()
 ) {
     // Get current location and city name from ViewModel
     val currentLocation by locationViewModel.currentLocation.collectAsState()
@@ -78,24 +99,104 @@ fun MainMapScreen(
     // Track if we're showing route details
     var showRouteDetails by remember { mutableStateOf(false) }
     
-    // Track if we're waiting for location
-    var isWaitingForLocation by remember { mutableStateOf(currentLocation == null) }
-    // Track if camera has been initially positioned
+    // Track if we're waiting for location by remember { mutableStateOf(currentLocation == null) }
     var hasCameraMoved by remember { mutableStateOf(false) }
+    // Track if we're waiting for the location to be determined
+    var isWaitingForLocation by remember { mutableStateOf(currentLocation == null) }    
+    
+    // Chat state
+    var showChatPanel by remember { mutableStateOf(false) }
+    
+    // Location selection state - new for integrating LocationSelectionPanel
+    var showLocationPanel by remember { mutableStateOf(false) }
+    val searchQuery by locationViewModel.searchQuery.collectAsState()
+    
+    // Use a mutableState to track loading status separately
+    var isManuallyLoadingChats by remember { mutableStateOf(false) }
+    
+    // Collect chat UI state
+    val chatUiState by chatViewModel.uiState.collectAsState()
+    
+    // Track conversations as a derived value that we can debug
+    val conversations = chatUiState.conversations.also {
+        if (it.isNotEmpty()) {
+            Timber.d("MainMapScreen: chatUiState has ${it.size} conversations")
+        }
+    }
+    val userChats = chatUiState.userChats
+    val isLoadingChats = chatUiState.isLoading || isManuallyLoadingChats
+      // Force initialization of ChatViewModel on startup to ensure it loads data
+    LaunchedEffect(Unit) {
+        Timber.d("MainMapScreen: Initial load of conversations")
+        isManuallyLoadingChats = true
+        chatViewModel.loadConversations()
+        delay(300) // Small delay
+        chatViewModel.forceRefreshConversations() // Use our direct access method
+        delay(300) // Small delay after force refresh
+        chatViewModel.debugState() // Debug the state
+        isManuallyLoadingChats = false
+    }
+    
+    // Add debug logging to verify conversations
+    LaunchedEffect(showChatPanel, conversations) {
+        if (showChatPanel) {
+            Timber.d("MainMapScreen: Chat panel is visible, conversation count: ${conversations.size}")
+            conversations.forEachIndexed { index, conversation ->
+                Timber.d("MainMapScreen: Conversation #${index+1}: id=${conversation.id}, lastMsg=${conversation.lastMessage?.text ?: "none"}")
+            }
+        }
+    }
+    
+    // Add a specific effect to log when showChatPanel changes
+    LaunchedEffect(showChatPanel) {
+        Timber.d("MainMapScreen: showChatPanel changed to $showChatPanel")
+    }
+    
+    // Add a specific effect to log when showLocationPanel changes
+    LaunchedEffect(showLocationPanel) {
+        Timber.d("MainMapScreen: showLocationPanel changed to $showLocationPanel")
+        
+        // Refresh search results when the panel is shown
+        if (showLocationPanel) {
+            locationViewModel.updateSearchQuery("")
+        }
+    }
+    
+      // Use mutableState to track selected destination so it can be updated when user makes a selection
+    var activeDestination by remember(selectedDestination) { 
+        mutableStateOf(selectedDestination)
+    }
     
     // Extract destination location if available
-    val destinationLatLng = remember(selectedDestination) {
-        selectedDestination?.latLng ?: selectedDestination?.coordinates?.toLatLng()
+    val destinationLatLng = remember(activeDestination) {
+        activeDestination?.latLng ?: activeDestination?.coordinates?.toLatLng()
     }
     
     // Determine if we should show both current location and destination
     val showBothLocations = remember(currentLocation, destinationLatLng) {
         currentLocation != null && destinationLatLng != null
     }
+    // Load chats when the chat panel is shown
+    LaunchedEffect(showChatPanel) {
+        Timber.d("MainMapScreen: showChatPanel changed to $showChatPanel")
+        if (showChatPanel) {
+            Timber.d("MainMapScreen: Loading conversations...")
+            isManuallyLoadingChats = true
+            chatViewModel.loadConversations()
+            delay(500) // Give time for changes to propagate
+            chatViewModel.debugState() // Call our new debug function
+            isManuallyLoadingChats = false
+        }
+    }
     
     // Log state for debugging
     LaunchedEffect(selectedDestination) {
         Timber.d("MainMapScreen: Selected destination: ${selectedDestination?.name}, location: $destinationLatLng")
+    }
+    
+    // Debug effect to log each state change in chatUiState
+    LaunchedEffect(chatUiState) {
+        Timber.d("MainMapScreen: chatUiState updated - isLoading: ${chatUiState.isLoading}, conversations: ${chatUiState.conversations.size}")
     }
 
     // Force location update when screen is displayed
@@ -120,11 +221,10 @@ fun MainMapScreen(
             locationViewModel.stopLocationUpdates()
         }
     }
-    
-    // Calculate route when both current location and destination are available
-    LaunchedEffect(currentLocation, destinationLatLng) {
+      // Calculate route when both current location and destination are available
+    LaunchedEffect(currentLocation, destinationLatLng, activeDestination) {
         if (currentLocation != null && destinationLatLng != null) {
-            Timber.d("Requesting route from $currentLocation to $destinationLatLng")
+            Timber.d("Requesting route from $currentLocation to $destinationLatLng for destination ${activeDestination?.name ?: "unknown"}")
             navigationViewModel.getRoute(
                 origin = currentLocation!!,
                 destination = destinationLatLng,
@@ -198,7 +298,7 @@ fun MainMapScreen(
                 )
                 Timber.d("Showing current location marker at $location")
             }
-            
+
             // Show destination marker if available
             if (destinationLatLng != null) {
                 Marker(
@@ -210,7 +310,7 @@ fun MainMapScreen(
                 )
                 Timber.d("Showing destination marker at $destinationLatLng")
             }
-            
+
             // Show route polyline if available
             navigationState.selectedRoute?.let { route ->
                 Polyline(
@@ -235,16 +335,83 @@ fun MainMapScreen(
             text = cityName,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(vertical = AppDimensions.spacingXXLarge, horizontal = AppDimensions.spacingMedium),
+                .padding(
+                    vertical = AppDimensions.spacingXXLarge,
+                    horizontal = AppDimensions.spacingMedium
+                ),
             fontSize = AppDimensions.textTitle,
             fontWeight = FontWeight.Bold
         )
 
-        // GPS indicator
-        GPSIndicator(
+        // New top right buttons in column
+        Column(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(AppDimensions.spacingMedium),
+                .padding(
+                    vertical = AppDimensions.spacingXXLarge,
+                    horizontal = AppDimensions.spacingMedium
+                ),
+            verticalArrangement = Arrangement.spacedBy(AppDimensions.spacingSmall)
+        ) {
+            // First top-right button
+            Box(
+                modifier = Modifier
+                    .size(AppDimensions.buttonSize)
+                    .clip(CircleShape)
+                    .background(AppColors.Background)
+                    .border(1.dp, AppColors.OnSecondary, CircleShape)
+                    .clickable {
+                        // Add your action for the first button here
+                        Timber.d("First top-right button clicked")
+                    }
+                    .padding(AppDimensions.spacingSmall),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = stringResource(R.string.profile),
+                    tint = AppColors.OnSecondary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(AppDimensions.spacingSmall))
+            // Second top-right button
+            Box(
+                modifier = Modifier
+                    .size(AppDimensions.buttonSize)
+                    .clip(CircleShape)
+                    .background(Color(0xFF89CFF0))
+                    .border(1.dp, AppColors.OnSecondary, CircleShape)
+                    .clickable {
+                        // Toggle the chat panel when profile button is clicked
+                        val newShowChatPanel = !showChatPanel
+                        showChatPanel = newShowChatPanel
+
+                        // If showing chat panel, make sure location panel is hidden
+                        if (newShowChatPanel) {
+                            showLocationPanel = false
+                            isManuallyLoadingChats = true
+                            chatViewModel.forceRefreshConversations()
+
+                            // The loading state will be reset by the LaunchedEffect(showChatPanel)
+                        }
+                    }
+                    .padding(AppDimensions.spacingSmall),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = stringResource(R.string.profile),
+                    tint = AppColors.OnSecondary
+                )
+            }
+        }
+
+        // GPS indicator moved to bottom right
+        GPSIndicator(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 120.dp, end = AppDimensions.spacingMedium), // Add padding from bottom to place above navigation buttons
             isActive = isRealLocation,
             onClick = {
                 if (showBothLocations && destinationLatLng != null && currentLocation != null) {
@@ -268,34 +435,137 @@ fun MainMapScreen(
                     }
                 }
             }
-        )
-
-        // Bottom navigation buttons
+        )        // Bottom navigation buttons
         BottomNavigationButtons(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = AppDimensions.spacingXLarge),
             onSOSClick = onSOSClick,
-            onNavigateClick = { onNavigateToDestination(Destination()) },
+            onNavigateClick = {
+                // Toggle location selection panel instead of navigating to a separate screen
+                showLocationPanel = !showLocationPanel
+
+                // Hide chat panel if showing location panel
+                if (showLocationPanel) {
+                    showChatPanel = false
+                    locationViewModel.updateSearchQuery("")
+                }
+            },
             onProfileClick = onProfileClick
         )
-        
-        // Route information panel (shows when a route is available)
+          // Route information panel (shows when a route is available)
         navigationState.selectedRoute?.let { route ->
             // Only show when we have both current location and destination
-            if (showBothLocations && selectedDestination != null) {
+            // Don't show when location panel is open to avoid UI conflicts
+            if (showBothLocations && activeDestination != null && !showLocationPanel) {
                 RouteInfoPanel(
                     route = route,
-                    destinationName = selectedDestination.name,
+                    destinationName = activeDestination?.name,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 120.dp) // Add space above the navigation buttons
                         .padding(horizontal = 16.dp)
                 )
             }
+        }// Chat list panel (shows when user clicks on profile button)
+        if (showChatPanel) {
+            ChatListPanel(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter),
+                conversations = conversations,
+                userChats = userChats,
+                onConversationSelected = { conversationId ->
+                    onConversationSelected(conversationId)
+                    showChatPanel = false // Hide panel after selection
+                },
+                onClose = { showChatPanel = false },
+                isLoading = isLoadingChats,
+                onCreateNewChat = {
+                    onUserSearchClick()
+                    showChatPanel = false // Hide panel after clicking create new chat
+                },
+                friendsViewModel = friendsViewModel,
+                onStartChatWithFriend = { friendId ->
+                    Timber.d("MainMapScreen: Starting chat with friend ID: $friendId")
+                    friendsViewModel.startChatWithFriend(friendId) { conversationId ->
+                        conversationId?.let {
+                            onConversationSelected(it)
+                            showChatPanel = false // Hide panel after selection
+                        }
+                    }
+                }
+            )
+        }
+
+        // Location Selection Panel (shows when user clicks on navigate button)
+        if (showLocationPanel) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .align(Alignment.Center),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 500.dp)  // Maximum width for larger screens
+                        .heightIn(min = 300.dp, max = 500.dp)  // Fixed height range
+                ) {
+                    LocationSelectionPanel(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { locationViewModel.updateSearchQuery(it) },
+                        onDestinationSelected = { destination ->
+                            // Update active destination
+                            activeDestination = destination
+
+                            // Extract LatLng from destination
+                            val destLatLng = when {
+                                destination.latLng != null -> destination.latLng
+                                destination.coordinates != null -> destination.coordinates.toLatLng()
+                                else -> null
+                            }
+
+                            if (destLatLng != null && currentLocation != null) {
+                                // Request route calculation
+                                navigationViewModel.getRoute(
+                                    origin = currentLocation!!,
+                                    destination = destLatLng,
+                                    showAlternatives = false
+                                )
+
+                                // Move camera to show both locations
+                                try {
+                                    moveCameraToShowBothLocations(
+                                        cameraPositionState = cameraPositionState,
+                                        currentLocation = currentLocation!!,
+                                        destinationLocation = destLatLng
+                                    )
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Error adjusting camera for both points")
+                                }
+                                // Set the selected destination and notify parent component
+                                activeDestination = destination
+
+                                // Call the navigation handler
+                                onNavigateToDestination()
+
+                                // Hide the panel after selection
+                                showLocationPanel = false
+                            }
+                        },
+                        currentLocation = currentLocation,
+                        locationViewModel = locationViewModel,
+                        onNavigateToDestination = {
+                            showLocationPanel = false
+                        }
+                    )
+                }
+            }
+        }
         }
     }
-}
+
 
 /**
  * Moves the camera to show both the current location and destination location
