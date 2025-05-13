@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonPin
+import androidx.compose.material.icons.filled.SupervisorAccount
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -368,7 +370,7 @@ fun MainMapScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    imageVector = Icons.Default.PersonPin,
                     contentDescription = stringResource(R.string.profile),
                     tint = AppColors.OnSecondary
                 )
@@ -400,7 +402,7 @@ fun MainMapScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    imageVector = Icons.Default.SupervisorAccount,
                     contentDescription = stringResource(R.string.profile),
                     tint = AppColors.OnSecondary
                 )

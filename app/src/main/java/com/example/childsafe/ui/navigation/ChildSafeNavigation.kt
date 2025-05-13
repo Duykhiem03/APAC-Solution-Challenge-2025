@@ -22,6 +22,7 @@ import com.example.childsafe.data.model.Destination
 import com.example.childsafe.ui.components.LocationPermissionHandler
 import com.example.childsafe.ui.screens.ChatScreen
 import com.example.childsafe.ui.screens.MainMapScreen
+import com.example.childsafe.ui.screens.WalkingTrackingScreen
 import com.example.childsafe.ui.viewmodel.ChatViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -38,6 +39,7 @@ object NavRoutes {
     const val MAIN_MAP = "main_map"
     const val SOS_SCREEN = "sos"
     const val CHAT_SCREEN = "chat/{conversationId}"
+    const val WALKING_TRACKING = "walking_tracking"
 
     // Helper function to create the chat route with a specific conversation ID
     fun chatRoute(conversationId: String) = "chat/$conversationId"
@@ -180,7 +182,7 @@ fun ChildSafeNavigation() {
                 },
                 onProfileClick = {
                     if (isUserAuthenticated.value) {
-                        navController.navigate(NavRoutes.PROFILE_SETTINGS)
+                        navController.navigate(NavRoutes.WALKING_TRACKING)
                     } else {
                         navController.navigate(NavRoutes.PHONE_AUTH)
                     }
@@ -250,5 +252,21 @@ fun ChildSafeNavigation() {
         
         // Note: User search and friend requests functionality has been integrated
         // directly into the ChatListPanel component in tabs
+        
+        // Walking Tracking screen with authentication check
+        composable(NavRoutes.WALKING_TRACKING) {
+            // Check authentication before showing walking tracking screen
+            LaunchedEffect(Unit) {
+                if (!isUserAuthenticated.value) {
+                    navController.navigate(NavRoutes.PHONE_AUTH) {
+                        popUpTo(NavRoutes.WALKING_TRACKING) { inclusive = true }
+                    }
+                }
+            }
+            
+            WalkingTrackingScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
     }
 }

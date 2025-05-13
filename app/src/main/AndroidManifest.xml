@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-
-    <!-- Permissions -->
-    <uses-permission android:name="android.permission.INTERNET" />
+    xmlns:tools="http://schemas.android.com/tools">    <!-- Permissions -->    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".ChildSafeApp"
@@ -31,9 +32,7 @@
                 android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup"
                 tools:node="remove" />
-        </provider>
-
-        <!-- Add FCM service -->
+        </provider>        <!-- Add FCM service -->
         <service
             android:name=".services.ChildSafeMessagingService"
             android:exported="false">
@@ -41,6 +40,13 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Add Step Counter service -->
+        <service
+            android:name=".services.StepCounterService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <!-- Add notification receiver for chat actions -->
         <receiver

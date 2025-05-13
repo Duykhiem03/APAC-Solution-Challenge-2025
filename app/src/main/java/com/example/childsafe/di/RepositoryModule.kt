@@ -2,12 +2,14 @@ package com.example.childsafe.di
 
 import com.example.childsafe.data.repository.ChatRepositoryImpl
 import com.example.childsafe.data.repository.DebugMessagesRepository
+import com.example.childsafe.data.repository.FirebaseHealthRepository
 import com.example.childsafe.data.repository.FriendRepositoryImpl
 import com.example.childsafe.data.repository.SosRepositoryImpl
 import com.example.childsafe.data.repository.StorageRepositoryImpl
 import com.example.childsafe.data.repository.UserRepositoryImpl
 import com.example.childsafe.domain.repository.ChatRepository
 import com.example.childsafe.domain.repository.FriendRepository
+import com.example.childsafe.domain.repository.HealthRepository
 import com.example.childsafe.domain.repository.SosRepository
 import com.example.childsafe.domain.repository.StorageRepository
 import com.example.childsafe.domain.repository.UserRepository
@@ -27,6 +29,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    /**
+     * Note: HealthRepository binding is now handled by HealthRepositoryModule
+     * to enable strategy pattern for switching between debug and production implementations
+     */
 
     /**
      * Note: ChatRepository binding is now handled by ChatRepositoryStrategyModule

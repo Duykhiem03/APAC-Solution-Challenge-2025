@@ -54,6 +54,21 @@
     <string name="mark_read">Mark as read</string>
     <string name="new_messages">New messages</string>
     <string name="you_have_new_messages">You have new messages</string>
-    <string name="channel_important_name">Important Messages</string>"
-    <string name="channel_important_description">Messages that require your immediate attention</string>"
+    <string name="channel_important_name">Important Messages</string>
+    <string name="channel_important_description">Messages that require your immediate attention</string>
+    
+    <!-- Walking Tracking strings -->
+    <string name="walking_tracking">Walking Tracking</string>
+    <string name="step_counter_active">Step Counter Active</string>
+    <string name="steps_counted">%d steps counted</string>
+    <string name="weekly_progress">Weekly Progress</string>
+    <string name="leaderboard">Leaderboard</string>
+    <string name="error">Error</string>
+    <string name="ok">OK</string>
+    <string name="back">Back</string>
+    <string name="step_counter_permission_title">Step Counter Permissions Required</string>
+    <string name="step_counter_permission_message">This app needs access to activity recognition and location to count your steps and provide step tracking features.</string>
+    <string name="permission_required">Permission Required</string>
+    <string name="enable_permissions_in_settings">Please enable the required permissions in settings to use step counting features.</string>
+    <string name="cancel">Cancel</string>
 </resources>
