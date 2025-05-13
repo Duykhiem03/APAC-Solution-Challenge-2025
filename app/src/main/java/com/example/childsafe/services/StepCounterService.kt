@@ -55,6 +55,8 @@ class StepCounterService : Service(), SensorEventListener {
         Timber.d("StepCounterService created")
         setupStepSensor()
         createNotificationChannel()
+        // Start daily reset service
+        DailyResetService.start(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -177,6 +179,8 @@ class StepCounterService : Service(), SensorEventListener {
         Timber.d("StepCounterService destroyed")
         sensorManager?.unregisterListener(this)
         serviceJob?.cancel()
+        // Stop daily reset service
+        DailyResetService.stop(this)
         Timber.d("StepCounterService destroyed")
     }
 }

@@ -48,6 +48,12 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- Add Daily Reset service -->
+        <service
+            android:name=".services.DailyResetService"
+            android:enabled="true"
+            android:exported="false" />
+
         <!-- Add notification receiver for chat actions -->
         <receiver
             android:name=".services.ChatNotificationReceiver"

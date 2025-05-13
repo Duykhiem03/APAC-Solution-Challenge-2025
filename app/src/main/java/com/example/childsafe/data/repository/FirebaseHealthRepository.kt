@@ -151,7 +151,32 @@ class FirebaseHealthRepository @Inject constructor(
             val today = LocalDate.now()
             val leaderboardEntries = mutableListOf<LeaderboardEntry>()
 
+            // Get the user's friends list
+            val friendshipsDoc = firestore.collection("friendships")
+                .document(userId)
+                .get()
+                .await()
+
+            if (!friendshipsDoc.exists()) {
+                Timber.d("No friends found, returning empty leaderboard")
+                _leaderboard.value = emptyList()
+                return
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val friendIds = friendshipsDoc.get("friends") as? List<String> ?: emptyList()
+            if (friendIds.isEmpty()) {
+                Timber.d("Friends list is empty, returning empty leaderboard")
+                _leaderboard.value = emptyList()
+                return
+            }
+
+            // Add current user to the list so they appear in leaderboard too
+            val allUserIds = friendIds + userId
+
+            // Get steps data for friends and current user
             val snapshots = firestore.collection("steps")
+                .whereIn("userId", allUserIds)  // This assumes you have a userId field in steps documents
                 .get()
                 .await()
 

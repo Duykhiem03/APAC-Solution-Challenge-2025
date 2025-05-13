@@ -57,6 +57,7 @@ import timber.log.Timber
 import java.time.Duration
 import java.time.LocalDate
 
+
 @Composable
 fun WalkingTrackingScreen(
     onBackClick: () -> Unit,
@@ -183,6 +184,14 @@ fun WalkingTrackingScreen(
                                 modifier = Modifier.size(24.dp),
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        // Display countdown to midnight
+                        val timeUntilMidnight by viewModel.timeUntilMidnight.collectAsState()
+                        Text(
+                            text = "Reset in: ${formatDuration(timeUntilMidnight)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.Gray
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))

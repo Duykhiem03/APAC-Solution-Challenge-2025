@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -26,16 +28,21 @@ class HealthViewModel @Inject constructor(
     internal val healthRepository: HealthRepository = healthRepositoryStrategy.provideHealthRepository()
     private val _uiState = MutableStateFlow(HealthUiState())
     val uiState: StateFlow<HealthUiState> = _uiState.asStateFlow()
-
+    
+    // Track time until midnight
+    private val _timeUntilMidnight = MutableStateFlow(0L)
+    val timeUntilMidnight: StateFlow<Long> = _timeUntilMidnight.asStateFlow()
+    
     // Track debug mode
     val isDebugMode: Boolean = buildConfig.isDebug
 
-    private var startTime: LocalDateTime? = null
     private var isTracking = false
+    private var updateJob: Job? = null
 
     init {
         viewModelScope.launch {
             loadInitialData()
+            startMidnightCountdown()
         }
     }
 
@@ -58,13 +65,29 @@ class HealthViewModel @Inject constructor(
         }
     }
 
+    private fun startMidnightCountdown() {
+        updateJob?.cancel()
+        updateJob = viewModelScope.launch {
+            while (true) {
+                val now = LocalDateTime.now()
+                val midnight = now.toLocalDate().plusDays(1).atStartOfDay()
+                val duration = Duration.between(now, midnight)
+                
+                _timeUntilMidnight.value = duration.toMillis()
+                _uiState.value = _uiState.value.copy(
+                    duration = duration.toMillis()
+                )
+                
+                delay(1000) // Update every second
+            }
+        }
+    }
+
     fun startTracking() {
         if (!isTracking) {
-            startTime = LocalDateTime.now()
             isTracking = true
             _uiState.value = _uiState.value.copy(
-                isTracking = true,
-                startTime = startTime
+                isTracking = true
             )
         }
     }
@@ -72,24 +95,17 @@ class HealthViewModel @Inject constructor(
     fun stopTracking() {
         if (isTracking) {
             isTracking = false
-            startTime = null
             _uiState.value = _uiState.value.copy(
-                isTracking = false,
-                startTime = null
+                isTracking = false
             )
         }
     }
 
     fun updateSteps(newSteps: Int) {
         viewModelScope.launch {
-            val duration = startTime?.let {
-                Duration.between(it, LocalDateTime.now()).toMillis()
-            } ?: 0L
-
-            healthRepository.updateSteps(newSteps, duration)
+            healthRepository.updateSteps(newSteps, _uiState.value.duration)
             _uiState.value = _uiState.value.copy(
-                currentSteps = newSteps,
-                duration = duration
+                currentSteps = newSteps
             )
         }
     }
@@ -103,6 +119,11 @@ class HealthViewModel @Inject constructor(
             }
         }
     }
+
+    override fun onCleared() {
+        super.onCleared()
+        updateJob?.cancel()
+    }
 }
 
 data class HealthUiState(
@@ -110,7 +131,6 @@ data class HealthUiState(
     val weeklyProgress: List<DailyStepProgress> = emptyList(),
     val leaderboard: List<LeaderboardEntry> = emptyList(),
     val isTracking: Boolean = false,
-    val startTime: LocalDateTime? = null,
     val duration: Long = 0L,
     val isLoading: Boolean = true,
     val error: String? = null
