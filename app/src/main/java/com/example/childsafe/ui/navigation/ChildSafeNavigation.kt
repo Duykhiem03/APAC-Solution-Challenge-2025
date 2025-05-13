@@ -21,7 +21,6 @@ import com.example.childsafe.auth.PhoneAuthViewModel
 import com.example.childsafe.data.model.Destination
 import com.example.childsafe.ui.components.LocationPermissionHandler
 import com.example.childsafe.ui.screens.ChatScreen
-import com.example.childsafe.ui.screens.DestinationSelectionScreen
 import com.example.childsafe.ui.screens.MainMapScreen
 import com.example.childsafe.ui.viewmodel.ChatViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
@@ -37,7 +36,6 @@ object NavRoutes {
     const val ONBOARDING = "onboarding"
     const val PROFILE_SETTINGS = "profile_settings"
     const val MAIN_MAP = "main_map"
-    const val DESTINATION_SELECTION = "destination_selection"
     const val SOS_SCREEN = "sos"
     const val CHAT_SCREEN = "chat/{conversationId}"
 
@@ -165,15 +163,13 @@ fun ChildSafeNavigation() {
                 }
             }
             
-            // Pass the selected destination to the main map screen when returning from destination selection
+            // Main map screen with integrated destination selection
             MainMapScreen(
                 selectedDestination = selectedDestination,
                 onNavigateToDestination = {
-                    if (isUserAuthenticated.value) {
-                        navController.navigate(NavRoutes.DESTINATION_SELECTION)
-                    } else {
-                        navController.navigate(NavRoutes.PHONE_AUTH)
-                    }
+                    // No longer navigating to a separate screen for destination selection
+                    // This function is now used for confirming the selected destination
+                    Timber.d("Destination confirmed: ${selectedDestination?.name ?: "None"}")
                 },
                 onSOSClick = {
                     if (isUserAuthenticated.value) {
@@ -197,45 +193,6 @@ fun ChildSafeNavigation() {
                 onUserSearchClick = {
                     // The friends functionality is now integrated into ChatListPanel
                     // No navigation needed, handled internally in MainMapScreen
-                },
-                // Pass locationViewModel explicitly to ensure consistency
-                locationViewModel = locationViewModel
-            )
-        }
-        
-        composable(NavRoutes.DESTINATION_SELECTION) {
-            // Check authentication before showing destination selection
-            LaunchedEffect(Unit) {
-                if (!isUserAuthenticated.value) {
-                    navController.navigate(NavRoutes.PHONE_AUTH) {
-                        popUpTo(NavRoutes.DESTINATION_SELECTION) { inclusive = true }
-                    }
-                }
-            }
-            
-            DestinationSelectionScreen(
-                selectedDestination = selectedDestination,
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onDestinationSelected = { destination -> 
-                    Timber.d("Destination selected: ${destination.name}, latLng=${destination.latLng}, coordinates=${destination.coordinates}")
-                    selectedDestination = destination
-                    navController.popBackStack()
-                },
-                onSOSClick = {
-                    if (isUserAuthenticated.value) {
-                        navController.navigate(NavRoutes.SOS_SCREEN)
-                    } else {
-                        navController.navigate(NavRoutes.PHONE_AUTH)
-                    }
-                },
-                onProfileClick = {
-                    if (isUserAuthenticated.value) {
-                        navController.navigate(NavRoutes.PROFILE_SETTINGS)
-                    } else {
-                        navController.navigate(NavRoutes.PHONE_AUTH)
-                    }
                 },
                 // Pass locationViewModel explicitly to ensure consistency
                 locationViewModel = locationViewModel
