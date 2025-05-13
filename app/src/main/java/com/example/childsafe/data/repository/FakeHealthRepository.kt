@@ -12,10 +12,6 @@ import timber.log.Timber
 
 @Singleton
 class FakeHealthRepository @Inject constructor() : HealthRepository {
-    init {
-        Timber.d("FakeHealthRepository initialized")
-    }
-
     private val _dailySteps = MutableStateFlow(0)
     override val dailySteps: StateFlow<Int> = _dailySteps.asStateFlow()
 
@@ -24,6 +20,15 @@ class FakeHealthRepository @Inject constructor() : HealthRepository {
 
     private val _leaderboard = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
     override val leaderboard: StateFlow<List<LeaderboardEntry>> = _leaderboard.asStateFlow()
+
+    init {
+        Timber.d("FakeHealthRepository initializing with sample data")
+        // Initialize with sample data from SampleStepTrackingData
+        _dailySteps.value = com.example.childsafe.test.SampleStepTrackingData.generateDailyProgress().steps
+        _weeklyProgress.value = com.example.childsafe.test.SampleStepTrackingData.generateWeeklyProgress(_dailySteps.value)
+        _leaderboard.value = com.example.childsafe.test.SampleStepTrackingData.generateLeaderboard()
+        Timber.d("FakeHealthRepository initialized with: steps=${_dailySteps.value}, weeklyProgress=${_weeklyProgress.value.size} entries, leaderboard=${_leaderboard.value.size} entries")
+    }
 
     /**
      * Internal method for tests to directly set daily steps
@@ -69,9 +74,9 @@ class FakeHealthRepository @Inject constructor() : HealthRepository {
     }
 
     override suspend fun updateLeaderboard() {
-        Timber.d("Generating leaderboard data")
+        Timber.d("Generating leaderboard data with current steps: ${_dailySteps.value}")
         val leaderboard = com.example.childsafe.test.SampleStepTrackingData
-            .generateLeaderboard()
+            .generateLeaderboard(currentSteps = _dailySteps.value)
         _leaderboard.value = leaderboard
         Timber.d("Leaderboard updated: ${leaderboard.size} entries")
     }

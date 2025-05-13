@@ -7,42 +7,60 @@ import java.time.LocalDateTime
 import kotlin.random.Random
 
 /**
- * Sample data provider for step tracking features in debug mode
+ * Sample data provider for step tracking features in debug mode.
+ * 
+ * This class provides consistent sample data for:
+ * - Daily progress with realistic step counts
+ * - Weekly progress with historical data
+ * - Leaderboard entries with sample users
  */
 object SampleStepTrackingData {
-    val mockUsers = listOf(
-        Pair("user1", "Mẹ"),
-        Pair("user2", "Bố"),
-        Pair("user3", "Chị Hải"),
-        Pair("user4", "Anh Minh"),
-        Pair("user5", "Bạn Trang"),
-        Pair("user6", "Cô Mai"),
-        Pair("user7", "Em Linh"),
-        Pair("user8", "Anh Tuấn"),
-        Pair("user9", "Em Phương"),
-        Pair("user10", "Bạn Nam")
+    private val mockUsers = listOf(
+        Pair("user1", "Emma"),
+        Pair("user2", "James"),
+        Pair("user3", "Olivia"),
+        Pair("user4", "William"),
+        Pair("user5", "Sophia"),
+        Pair("user6", "Lucas"),
+        Pair("user7", "Mia"),
+        Pair("user8", "Henry"),
+        Pair("user9", "Ava"),
+        Pair("user10", "Noah")
     )
 
-    val mockPhotos = listOf(
-        "https://example.com/avatar1.jpg",
-        "https://example.com/avatar2.jpg",
+    private val mockPhotos = listOf(
+        "https://example.com/avatars/avatar1.jpg",
+        "https://example.com/avatars/avatar2.jpg",
         null,  // Some users don't have photos
-        "https://example.com/avatar4.jpg"
+        "https://example.com/avatars/avatar4.jpg"
     )
 
-    val stepGoals = listOf(8000, 10000, 12000)
-    
+    private val stepGoals = listOf(8000, 10000, 12000)
+
+    /**
+     * Generates a daily progress entry with realistic step data.
+     * For debug mode, it ensures steps are always between 5000-8000
+     * to provide meaningful test data.
+     */
     fun generateDailyProgress(): DailyStepProgress {
         val goal = stepGoals.random()
-        val steps = (goal * Random.nextDouble(0.3, 1.2)).toInt()
+        // Generate steps between 5000-8000 for consistent testing
+        val steps = (5000..8000).random()
         return DailyStepProgress(
             dayOfWeek = LocalDateTime.now().dayOfWeek.value % 7,
             steps = steps,
             goal = goal,
-            duration = (steps / 100L) * 60L * 1000L // Roughly 1 minute per 100 steps
+            duration = (steps / 100L) * 60L * 1000L // About 1 minute per 100 steps
         )
     }
 
+    /**
+     * Generates a week's worth of progress, with decreasing step counts
+     * towards earlier days and future days empty.
+     *
+     * @param currentSteps Today's step count
+     * @return List of daily progress entries
+     */
     fun generateWeeklyProgress(currentSteps: Int = 0): List<DailyStepProgress> {
         val today = LocalDate.now()
         val currentDayOfWeek = today.dayOfWeek.value % 7
@@ -83,21 +101,43 @@ object SampleStepTrackingData {
         }
     }
 
-    fun generateLeaderboard(): List<LeaderboardEntry> {
-        // Generate steps with some variation but keep relative positions
-        val baseSteps = (5000..12000).random()
+    /**
+     * Generates a randomized but consistently ordered leaderboard of users,
+     * including the current user with their actual step count.
+     *
+     * @param currentSteps The current user's step count
+     * @return List of leaderboard entries, sorted by step count
+     */
+    fun generateLeaderboard(currentSteps: Int = 0): List<LeaderboardEntry> {
+        // Base steps between 8000-12000
+        val baseSteps = (8000..12000).random()
         
-        return mockUsers.mapIndexed { index, (userId, name) ->
+        // Generate other users' entries
+        val otherUsers = mockUsers.mapIndexed { index, (userId, name) ->
+            // Each subsequent user has 90% of previous user's steps on average
+            // with some random variation (+/- 30%)
+            val position = index.toDouble()
+            val decay = Math.pow(0.9, position)
             val variation = Random.nextDouble(0.7, 1.3)
-            val steps = (baseSteps * (1.2 - (index * 0.1)) * variation).toInt()
+            val steps = (baseSteps * decay * variation).toInt()
             
             LeaderboardEntry(
                 userId = userId,
                 username = name,
                 steps = steps,
-                multiplier = 1.0,
                 photoUrl = mockPhotos.getOrNull(index % mockPhotos.size)
             )
-        }.sortedByDescending { it.steps }
+        }
+
+        // Add current user with actual steps
+        val currentUser = LeaderboardEntry(
+            userId = "current_user",
+            username = "Me",  // Display as "Me" in the leaderboard
+            steps = currentSteps,
+            photoUrl = mockPhotos.firstOrNull()  // Give current user an avatar
+        )
+
+        // Combine and sort all entries by steps
+        return (otherUsers + currentUser).sortedByDescending { it.steps }
     }
 }
