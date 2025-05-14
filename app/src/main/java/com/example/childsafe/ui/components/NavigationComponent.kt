@@ -63,14 +63,14 @@ fun GPSIndicator(
  * @param modifier The modifier to be applied to the component
  * @param onSOSClick Callback for when the SOS button is clicked
  * @param onNavigateClick Callback for when the Navigate button is clicked
- * @param onProfileClick Callback for when the Profile button is clicked
+ * @param onWalkingTrackingClick Callback for when the Walking Tracking button is clicked
  */
 @Composable
 fun BottomNavigationButtons(
     modifier: Modifier = Modifier,
     onSOSClick: () -> Unit,
     onNavigateClick: () -> Unit,
-    onProfileClick: () -> Unit = {}
+    onWalkingTrackingClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -85,7 +85,7 @@ fun BottomNavigationButtons(
                 .clip(CircleShape)
                 .background(AppColors.ProfileYellow)
                 .border(1.dp, AppColors.OnSecondary, CircleShape)
-                .clickable { onProfileClick() },
+                .clickable { onWalkingTrackingClick() },
             contentAlignment = Alignment.Center
         ) {
             Icon(

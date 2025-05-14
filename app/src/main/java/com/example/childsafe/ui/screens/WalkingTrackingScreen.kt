@@ -46,6 +46,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.childsafe.CharacterMonitorWithRoad
 import com.example.childsafe.R
 import com.example.childsafe.data.model.LeaderboardEntry
 import com.example.childsafe.data.repository.FakeHealthRepository
@@ -302,48 +303,7 @@ fun WalkingTrackingScreen(
         }
 
         // Character monitor with road
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            // Road background
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 55.dp)
-                    .height(60.dp)
-                    .background(Color(0xFFE0E0E0))
-                    .align(Alignment.Center)
-            ) {
-                // Dotted line in the middle of the road
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .align(Alignment.Center),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    repeat(20) {
-                        Box(
-                            modifier = Modifier
-                                .width(20.dp)
-                                .height(4.dp)
-                                .background(Color.White)
-                        )
-                    }
-                }
-            }
-
-            // Character
-            Image(
-                painter = painterResource(id = R.drawable.walking_character),
-                contentDescription = "Step Monitor Character",
-                modifier = Modifier
-                    .size(100.dp)
-                    .offset(y = (-8).dp) // Slight offset to place character properly on the road
-            )
-        }
+        CharacterMonitorWithRoad()
 
         Spacer(modifier = Modifier.height(24.dp))
 

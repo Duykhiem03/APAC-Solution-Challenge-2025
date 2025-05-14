@@ -79,6 +79,7 @@ import timber.log.Timber
 fun MainMapScreen(
     onNavigateToDestination: () -> Unit = {},
     onSOSClick: () -> Unit = {},
+    onWalkingTrackingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onConversationSelected: (String) -> Unit = {},
     onUserSearchClick: () -> Unit = {},
@@ -364,7 +365,7 @@ fun MainMapScreen(
                     .border(1.dp, AppColors.OnSecondary, CircleShape)
                     .clickable {
                         // Add your action for the first button here
-                        Timber.d("First top-right button clicked")
+                        onProfileClick()
                     }
                     .padding(AppDimensions.spacingSmall),
                 contentAlignment = Alignment.Center
@@ -403,7 +404,7 @@ fun MainMapScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.SupervisorAccount,
-                    contentDescription = stringResource(R.string.profile),
+                    contentDescription = stringResource(R.string.message),
                     tint = AppColors.OnSecondary
                 )
             }
@@ -453,7 +454,7 @@ fun MainMapScreen(
                     locationViewModel.updateSearchQuery("")
                 }
             },
-            onProfileClick = onProfileClick
+            onWalkingTrackingClick = onWalkingTrackingClick
         )
           // Route information panel (shows when a route is available)
         navigationState.selectedRoute?.let { route ->

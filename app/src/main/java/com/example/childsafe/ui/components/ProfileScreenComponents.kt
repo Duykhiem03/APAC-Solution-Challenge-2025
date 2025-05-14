@@ -2,6 +2,7 @@
 package com.example.childsafe
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +48,12 @@ data class StudentProfile(
     var school: String = "",
     var birthdate: String = "",
     var year: String = ""
+)
+
+data class ParentProfile(
+    var name: String = "",
+    var birthdate: String = "",
+    var childName: String = ""
 )
 
 @Composable
@@ -151,7 +160,7 @@ fun ColorSelector(
 }
 
 @Composable
-fun ProfileFormFields(
+fun StudentProfileFormFields(
     profile: StudentProfile,
     onProfileChange: (StudentProfile) -> Unit
 ) {
@@ -211,6 +220,102 @@ fun ProfileFormFields(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
             placeholder = { Text("Năm học") }
+        )
+    }
+}
+
+@Composable
+fun ParentProfileFormFields(
+    profile: ParentProfile,
+    onProfileChange: (ParentProfile) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Tên",
+            fontSize = 14.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = profile.name,
+            onValueChange = { onProfileChange(profile.copy(name = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            placeholder = { Text("Tên") }
+        )
+
+        Text(
+            text = "Ngày sinh",
+            fontSize = 14.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = profile.birthdate,
+            onValueChange = { onProfileChange(profile.copy(birthdate = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            placeholder = { Text("Ngày sinh") }
+        )
+
+        Text(
+            text = "Con của bạn tên gì?",
+            fontSize = 14.sp,
+            color = Color.Gray,
+            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = profile.childName,
+            onValueChange = { onProfileChange(profile.copy(childName = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            placeholder = { Text("Tên con của bạn") }
+        )
+    }
+}
+
+@Composable
+fun CharacterMonitorWithRoad(modifier: Modifier = Modifier) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        // Road background
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 55.dp)
+                .height(60.dp)
+                .background(Color(0xFFE0E0E0))
+                .align(Alignment.Center)
+        ) {
+            // Dotted line in the middle of the road
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .align(Alignment.Center),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(20) {
+                    Box(
+                        modifier = Modifier
+                            .width(20.dp)
+                            .height(4.dp)
+                            .background(Color.White)
+                    )
+                }
+            }
+        }
+
+        // Character
+        Image(
+            painter = painterResource(id = R.drawable.walking_character),
+            contentDescription = "Step Monitor Character",
+            modifier = Modifier
+                .size(100.dp)
+                .offset(y = (-8).dp) // Slight offset to place character properly on the road
         )
     }
 }

@@ -180,9 +180,16 @@ fun ChildSafeNavigation() {
                         navController.navigate(NavRoutes.PHONE_AUTH)
                     }
                 },
-                onProfileClick = {
+                onWalkingTrackingClick = {
                     if (isUserAuthenticated.value) {
                         navController.navigate(NavRoutes.WALKING_TRACKING)
+                    } else {
+                        navController.navigate(NavRoutes.PHONE_AUTH)
+                    }
+                },
+                onProfileClick = {
+                    if (isUserAuthenticated.value) {
+                        navController.navigate(NavRoutes.PROFILE_SETTINGS)
                     } else {
                         navController.navigate(NavRoutes.PHONE_AUTH)
                     }
@@ -200,11 +207,7 @@ fun ChildSafeNavigation() {
                 locationViewModel = locationViewModel
             )
         }
-        
-        composable(NavRoutes.SOS_SCREEN) {
-            // SOSScreen will be implemented separately
-            // SOSScreen(onBack = { navController.popBackStack() })
-        }
+
         
         // Chat screen with conversationId parameter
         composable(
@@ -241,13 +244,7 @@ fun ChildSafeNavigation() {
                     }
                 }
             }
-            
-            // SOSScreen implementation
-            // SOSScreen(
-            //     currentUserId = FirebaseAuth.getInstance().currentUser?.uid,
-            //     userPhoneNumber = FirebaseAuth.getInstance().currentUser?.phoneNumber,
-            //     onBackClick = { navController.popBackStack() }
-            // )
+
         }
         
         // Note: User search and friend requests functionality has been integrated

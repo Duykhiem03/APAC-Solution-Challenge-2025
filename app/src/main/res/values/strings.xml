@@ -56,6 +56,7 @@
     <string name="you_have_new_messages">You have new messages</string>
     <string name="channel_important_name">Important Messages</string>
     <string name="channel_important_description">Messages that require your immediate attention</string>
+    <string name="message">Message</string>
     
     <!-- Walking Tracking strings -->
     <string name="walking_tracking">Walking Tracking</string>

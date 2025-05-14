@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +29,7 @@ import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -40,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -51,11 +55,10 @@ import com.example.childsafe.ui.theme.ChildSafeTheme
 fun ProfileSettingScreen(
     onComplete: () -> Unit,
     onSignOut: () -> Unit = {} // Add callback for sign out navigation
-) {
-    var selectedColor by remember { mutableStateOf(Color.LightGray) }
-
-    var selectedButton by remember { mutableStateOf("none") }
-    var profile by remember { mutableStateOf(StudentProfile()) }
+) {    var selectedColor by remember { mutableStateOf(Color.LightGray) }
+    var selectedButton by remember { mutableStateOf("student") } // Set student as default
+    var studentProfile by remember { mutableStateOf(StudentProfile()) }
+    var parentProfile by remember { mutableStateOf(ParentProfile()) }
     
     // Local state for showing confirmation dialog
     var showSignOutDialog by remember { mutableStateOf(false) }
@@ -64,11 +67,24 @@ fun ProfileSettingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 40.dp)
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        StudentIdCard(profile = profile, cardColor = selectedColor)
+        if (selectedButton == "student") {
+            StudentIdCard(profile = studentProfile, cardColor = selectedColor)
+        } else {
+            Spacer(modifier = Modifier.height(32.dp))
+            CharacterMonitorWithRoad()
+            Text(
+                text = "Đồng hành cùng con trên mọi chặng đường!",
+                fontWeight = FontWeight.Bold,
+                fontSize = 25.sp,
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(top = 32.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -122,9 +138,12 @@ fun ProfileSettingScreen(
             colors = listOf(Color.LightGray, Color(0xFFFFD700), Color(0xFF87CEEB), Color(0xFFF08080), Color(0xFF90EE90)),
             selectedColor = selectedColor,
             onColorSelected = { selectedColor = it }
-        )
-
-        ProfileFormFields(profile = profile, onProfileChange = { profile = it })
+        )        
+        if (selectedButton == "student") {
+            StudentProfileFormFields(profile = studentProfile, onProfileChange = { studentProfile = it })
+        } else {
+            ParentProfileFormFields(profile = parentProfile, onProfileChange = { parentProfile = it })
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
         Button(
