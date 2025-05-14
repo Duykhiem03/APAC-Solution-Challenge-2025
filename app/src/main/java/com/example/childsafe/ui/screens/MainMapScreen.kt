@@ -14,14 +14,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonPin
 import androidx.compose.material.icons.filled.SupervisorAccount
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +46,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.childsafe.R
 import com.example.childsafe.data.model.Conversation
@@ -450,9 +456,12 @@ fun MainMapScreen(
                 if (isSosButtonPressed && !isSOSActive) {
                     Card(
                         modifier = Modifier
-                            .widthIn(max = 400.dp)
+                            .widthIn(max = 300.dp)
                             .padding(16.dp),
-                        shape = MaterialTheme.shapes.medium,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFFFFAE6) // Light cream background
+                        )
                     ) {
                         Column(
                             modifier = Modifier
@@ -460,28 +469,71 @@ fun MainMapScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
                             Text(
-                                text = "SOS Emergency",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = AppColors.SosRed
+                                text = "Bạn có đang gặp nguy hiểm?",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
                             )
 
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = "Sending in $sosCountdown seconds",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            TextButton(
-                                onClick = { sosViewModel.cancelSosButtonPress() },
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = AppColors.Primary
-                                )
+                            
+                            // Timer circle
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(100.dp)
                             ) {
-                                Text("CANCEL")
+                                CircularProgressIndicator(
+                                    progress = { sosCountdown.toFloat() / sosUiState.confirmationDelaySeconds.toFloat() },
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = AppColors.SosRed,
+                                    trackColor = AppColors.SosRed.copy(alpha = 0.2f),
+                                    strokeWidth = 4.dp
+                                )
+                                
+                                Text(
+                                    text = String.format("%02d:%02d", 0, sosCountdown),
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(20.dp))
+                            
+                            // Yes/No buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {                                
+                                Button(
+                                    onClick = { 
+                                        // Immediately trigger SOS without waiting for countdown
+                                        sosViewModel.cancelSosButtonPress() // Cancel the countdown
+                                        currentLocation?.let { location ->
+                                            // Trigger SOS event and send messages immediately
+                                            sosViewModel.triggerSOSImmediately(location)
+                                            val conversationIds = messageViewModel.sendSOSMessage(location)
+                                            sosViewModel.startSosMonitoring(location, conversationIds)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFFFC0C0) // Light red
+                                    ),
+                                    modifier = Modifier.width(100.dp)
+                                ) {
+                                    Text("Có", color = Color.Black)
+                                }
+                                
+                                Button(
+                                    onClick = { sosViewModel.cancelSosButtonPress() },
+                                    shape = RoundedCornerShape(24.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFD0F0C0) // Light green
+                                    ),
+                                    modifier = Modifier.width(100.dp)
+                                ) {
+                                    Text("Không", color = Color.Black)
+                                }
                             }
                         }
                     }

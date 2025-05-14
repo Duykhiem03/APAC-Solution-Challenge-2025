@@ -299,6 +299,51 @@ class SosViewModel @Inject constructor(
     }
 
     /**
+     * Immediately triggers an SOS event with the provided location
+     * This skips the countdown and directly triggers the SOS alert
+     * @param location Current location to use for the SOS event
+     */
+    fun triggerSOSImmediately(location: LatLng) {
+        if (_uiState.value.isSOSActive) return
+        
+        viewModelScope.launch {
+            try {
+                // Create location object for SOS event from provided location
+                val sosLocation = SosLocation(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    accuracy = 0f, // We don't have accuracy from LatLng
+                    address = "" // Will be reverse geocoded by the backend
+                )
+                
+                // Get additional context data
+                val isMoving = locationRepository.isDeviceMoving()
+                val speed = locationRepository.getCurrentSpeed()
+
+                // Create SosContextData object
+                val sosContextData = SosContextData(moving = isMoving, speed = speed)
+                
+                // Trigger the SOS event immediately
+                val sosEvent = sosRepository.triggerSosEvent(
+                    location = sosLocation,
+                    triggerMethod = TriggerMethod.MANUAL_IMMEDIATE, // Use a specific trigger method for immediate SOS
+                    contextData = sosContextData
+                )
+                
+                _uiState.value = _uiState.value.copy(
+                    isSOSActive = true,
+                    isSosButtonPressed = false,
+                    activeSOSEvent = sosEvent
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Failed to trigger immediate SOS: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    /**
      * Clears any error message in the UI state
      */
     fun clearError() {

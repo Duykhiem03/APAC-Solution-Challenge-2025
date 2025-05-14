@@ -108,7 +108,10 @@ enum class TriggerMethod {
     ACTIVITY,
     
     @PropertyName("aiDetection")
-    AI_DETECTION
+    AI_DETECTION,
+
+    @PropertyName("manualImmediate")
+    MANUAL_IMMEDIATE
 }
 
 /**
