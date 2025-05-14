@@ -48,9 +48,14 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.example.childsafe.data.model.MessageStatus
 import com.example.childsafe.BuildConfig
+import com.example.childsafe.R
+import com.example.childsafe.ui.theme.AppDimensions
 import com.example.childsafe.ui.viewmodel.ChatViewModel
 import com.example.childsafe.utils.BuildConfigHelper
 import timber.log.Timber
@@ -592,6 +597,24 @@ fun ChatInputBar(
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(AppDimensions.navigationButtonSize)
+                    .clip(CircleShape)
+                    .background(Color(0xFFBCE9FF))
+                    .border(1.dp, AppColors.OnSecondary, CircleShape)
+                    .clickable { },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = stringResource(R.string.camera),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+
             // Text field
             OutlinedTextField(
                 value = value,
@@ -623,12 +646,13 @@ fun ChatInputBar(
                         onClick = onMicClick,
                         modifier = Modifier
                             .size(48.dp)
-                            .background(AppColors.Primary, CircleShape)
+                            .background(Color(0xFFBCE9FF), CircleShape)
+                            .border(1.dp, AppColors.OnSecondary, CircleShape)
                     ) {
                         Icon(
                             Icons.Default.Mic,
                             contentDescription = "Voice Message",
-                            tint = Color.White
+                            tint = Color.Black
                         )
                     }
                 } else {
@@ -636,12 +660,13 @@ fun ChatInputBar(
                         onClick = onSendClick,
                         modifier = Modifier
                             .size(48.dp)
-                            .background(AppColors.Primary, CircleShape)
+                            .background(Color(0xFFBCE9FF), CircleShape)
+                            .border(1.dp, AppColors.OnSecondary, CircleShape)
                     ) {
                         Icon(
                             Icons.Default.Send,
                             contentDescription = "Send",
-                            tint = Color.White
+                            tint = Color.Black
                         )
                     }
                 }
@@ -671,7 +696,7 @@ fun MessageItem(
     
     val isSentByMe = message.sender == currentUserId
     val messageAlignment = if (isSentByMe) Alignment.End else Alignment.Start
-    val messageColor = if (isSentByMe) AppColors.Primary.copy(alpha = 0.2f) else Color.White
+    val messageColor = if (isSentByMe) Color(0xFFBCE9FF) else Color.White
     val textColor = Color.Black
     val dateFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     

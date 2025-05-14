@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -122,31 +123,20 @@ fun WalkingTrackingScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 50.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(top = 32.dp),
+            horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.back)
+                    contentDescription = stringResource(R.string.back),
                 )
             }
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = stringResource(R.string.walking_tracking),
-                    style = MaterialTheme.typography.titleLarge
-                )
-            }
-
-            // Empty box for alignment
-            Box(modifier = Modifier.size(48.dp))
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Step Counter Display
         Box(
@@ -185,14 +175,6 @@ fun WalkingTrackingScreen(
                                 modifier = Modifier.size(24.dp),
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        // Display countdown to midnight
-                        val timeUntilMidnight by viewModel.timeUntilMidnight.collectAsState()
-                        Text(
-                            text = "Reset in: ${formatDuration(timeUntilMidnight)}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.Gray
-                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -231,73 +213,6 @@ fun WalkingTrackingScreen(
                         isPastDay = isPastDay,
                         modifier = Modifier.size(36.dp)
                     )
-
-                    // Step count
-//                    Text(
-//                        text = "${progress.steps}",
-//                        fontSize = 12.sp,
-//                        color = Color.Black,
-//                        fontWeight = FontWeight.Medium
-//                    )
-//
-//                    // Progress indicator with milestones
-//                    val progressPercent =
-//                        (progress.steps.toFloat() / progress.goal).coerceIn(0f, 1f)
-//                    Box(
-//                        modifier = Modifier
-//                            .width(4.dp)
-//                            .height(24.dp)
-//                            .background(Color(0xFFEEEEEE), RoundedCornerShape(2.dp))
-//                    ) {
-//                        if (progress.steps > 0) {
-//                            Box(
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .fillMaxHeight(progressPercent)
-//                                    .align(Alignment.BottomCenter)
-//                                    .background(
-//                                        when {
-//                                            progressPercent >= 1f -> Color(0xFF4CAF50) // Goal achieved
-//                                            progressPercent >= 0.7f -> Color(0xFFFFD700) // Good progress
-//                                            else -> Color(0xFFFFA000) // Some progress
-//                                        },
-//                                        RoundedCornerShape(2.dp)
-//                                    )
-//                            )
-//
-//                            // Milestone markers
-//                            if (progressPercent >= 0.25f) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .fillMaxWidth()
-//                                        .height(1.dp)
-//                                        .align(Alignment.BottomCenter)
-//                                        .offset(y = -(24.dp * 0.25f))
-//                                        .background(Color.White.copy(alpha = 0.5f))
-//                                )
-//                            }
-//                            if (progressPercent >= 0.5f) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .fillMaxWidth()
-//                                        .height(1.dp)
-//                                        .align(Alignment.BottomCenter)
-//                                        .offset(y = -(24.dp * 0.5f))
-//                                        .background(Color.White.copy(alpha = 0.5f))
-//                                )
-//                            }
-//                            if (progressPercent >= 0.75f) {
-//                                Box(
-//                                    modifier = Modifier
-//                                        .fillMaxWidth()
-//                                        .height(1.dp)
-//                                        .align(Alignment.BottomCenter)
-//                                        .offset(y = -(24.dp * 0.75f))
-//                                        .background(Color.White.copy(alpha = 0.5f))
-//                                )
-//                            }
-//                        }
-//                    }
                 }
             }
         }
@@ -307,44 +222,6 @@ fun WalkingTrackingScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-//        // Weekly Progress
-//        Text(
-//            text = stringResource(R.string.weekly_progress),
-//            style = MaterialTheme.typography.titleMedium,
-//            modifier = Modifier.padding(bottom = 8.dp)
-//        )
-//
-//        Row(
-//            modifier = Modifier.fillMaxWidth(),
-//            horizontalArrangement = Arrangement.SpaceBetween
-//        ) {
-//            // Add debug logging for weekly progress
-//            LaunchedEffect(weeklyProgress) {
-//                Timber.d("Weekly progress updated: ${weeklyProgress.size} entries")
-//                weeklyProgress.forEachIndexed { index, progress ->
-//                    Timber.d("Day ${index + 1}: ${progress.steps} steps (${(progress.steps.toFloat() / progress.goal * 100).toInt()}% of goal)")
-//                }
-//            }
-//
-//            weeklyProgress.take(7).forEach { progress ->
-//                Column(
-//                    horizontalAlignment = Alignment.CenterHorizontally
-//                ) {
-//                    Text(
-//                        text = getDayAbbreviation(progress.dayOfWeek),
-//                        fontSize = 12.sp,
-//                        color = AppColors.OnSecondary
-//                    )
-//                    Text(
-//                        text = progress.steps.toString(),
-//                        fontSize = 14.sp,
-//                        fontWeight = FontWeight.Bold
-//                    )
-//                }
-//            }
-//        }
-
-        Spacer(modifier = Modifier.height(24.dp))
 
         // Leaderboard and Group sections
         Row(
@@ -534,36 +411,24 @@ private fun CircularProgressDay(
 
             // Draw background circle
             drawCircle(
-                color = when {
-                    isCurrentDay -> Color(0xFFFFD700) // Bright yellow for current day
-                    isPastDay -> Color(0xFFFFF4D6)   // Light yellow for past days
-                    else -> Color(0xFFEEEEEE)        // Gray for future days
-                },
+                color = Color(0xFFFFF3AF),
                 radius = circleRadius,
                 center = centerOffset
             )
 
-            // Draw border circle (lighter than background)
-            drawCircle(
-                color = when {
-                    isCurrentDay -> Color(0xFFE6C200) // Darker yellow for current day
-                    isPastDay -> Color(0xFFFFE7B3)   // Darker yellow for past days
-                    else -> Color(0xFFDDDDDD)        // Darker gray for future days
-                },
-                radius = circleRadius,
-                center = centerOffset,
-                style = Stroke(width = 1.dp.toPx())
-            )
+//            // Draw border circle (lighter than background)
+//            drawCircle(
+//                color = Color(0xFFFFF3AF),
+//                radius = circleRadius,
+//                center = centerOffset,
+//                style = Stroke(width = 1.dp.toPx())
+//            )
 
             if (progress > 0f) {
                 // Draw progress arc
                 val sweepAngle = progress * 360f
                 drawArc(
-                    color = when {
-                        progress >= 1f -> Color(0xFF4CAF50) // Goal achieved
-                        progress >= 0.7f -> Color(0xFFFFD700) // Good progress
-                        else -> Color(0xFFFFA000) // Some progress
-                    },
+                    color = Color(0xFFFF6B6B),
                     startAngle = -90f,
                     sweepAngle = sweepAngle,
                     useCenter = false,
@@ -582,7 +447,7 @@ private fun CircularProgressDay(
             text = dayText,
             fontSize = 12.sp,
             fontWeight = if (isCurrentDay) FontWeight.Bold else FontWeight.Medium,
-            color = if (isCurrentDay) Color(0xFF8B7355) else Color(0xFF666666),
+            color = Color.Black,
             modifier = Modifier.align(Alignment.Center)
         )
     }
@@ -603,90 +468,3 @@ private fun getDayAbbreviation(dayOfWeek: Int): String {
         else -> "T${dayOfWeek + 1}"
     }
 }
-//
-//@Preview(
-//    name = "Walking Tracking Screen",
-//    showSystemUi = true,
-//    device = "spec:width=411dp,height=891dp",
-//)
-//@Composable
-//private fun WalkingTrackingScreenPreview() {
-//    val fakeRepository = FakeHealthRepository()
-//
-//    // Setup initial data
-//    val mockLeaderboard = listOf(
-//        LeaderboardEntry(
-//            userId = "1",
-//            username = "Chi hai",
-//            steps = 1490
-//        ),
-//        LeaderboardEntry(
-//            userId = "2",
-//            username = "Ban",
-//            steps = 1256
-//        ),
-//        LeaderboardEntry(
-//            userId = "3",
-//            username = "Bạn thân",
-//            steps = 1134
-//        ),
-//        LeaderboardEntry(
-//            userId = "4",
-//            username = "Mẹ",
-//            steps = 852
-//        ),
-//        LeaderboardEntry(
-//            userId = "5",
-//            username = "Bố",
-//            steps = 672
-//        )
-//    )
-//
-//    // Set up fake repository data
-//    fakeRepository.setDailySteps(2000)
-//    fakeRepository.setLeaderboard(mockLeaderboard)
-//
-//    val previewViewModel = object : HealthViewModel(fakeRepository) {
-//        override val uiState = MutableStateFlow(
-//            HealthUiState(
-//                currentSteps = 2000,
-//                duration = Duration.ofSeconds(16225).toMillis(), // 4:30:25
-//                leaderboard = mockLeaderboard,
-//                isTracking = true,
-//                startTime = LocalDateTime.now().minusHours(4).minusMinutes(30).minusSeconds(25)
-//            )
-//        )
-//    }
-//
-//    ChildSafeTheme {
-//        Surface(
-//            modifier = Modifier.fillMaxSize(),
-//            color = MaterialTheme.colorScheme.background
-//        ) {
-//            WalkingTrackingScreen(
-//                onBackClick = {},
-//                viewModel = previewViewModel
-//            )
-//        }
-//    }
-//}
-//
-//
-//        )
-//        override val isDebugMode = true
-//    }
-//
-//    ChildSafeTheme {
-//        Surface(
-//            modifier = Modifier.fillMaxSize(),
-//            color = MaterialTheme.colorScheme.background
-//        ) {
-//            WalkingTrackingScreen(
-//                onBackClick = {},
-//                viewModel = debugViewModel
-//            )
-//        }
-//    }
-//}
-//
-//

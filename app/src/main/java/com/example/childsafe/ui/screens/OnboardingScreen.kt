@@ -59,7 +59,7 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Hãy cùng truy trì thói quen\nhọc tập Creative giúp bạn mỗi ngày tốt hơn",
+                text = "bắt đầu hành trình an toàn\nhãy để ChildSafe giúp bạn di chuyển đầy tự tin!",
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 color = Color.Gray
@@ -91,13 +91,13 @@ fun OnboardingScreen(onGetStarted: () -> Unit) {
 @Composable
 fun TriangleMascot() {
     Box(
-        modifier = Modifier.size(120.dp),
         contentAlignment = Alignment.Center
     ) {
         // Simplified representation - you'd use a custom drawing or image resource
         Image(
             painter = painterResource(R.drawable.triangle_mascot),
-            contentDescription = "Mascot"
+            contentDescription = "Mascot",
+            modifier = Modifier.size(300.dp)
         )
     }
 }

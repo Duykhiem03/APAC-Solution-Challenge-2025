@@ -224,8 +224,8 @@ fun PhoneAuthScreen(
                     is AuthState.Idle, is AuthState.Error -> {
                         // Phone number input step (first two screens from the image)
                         Text(
-                            text = "Hãy nhập số điện thoại của bạn!",
-                            fontSize = 18.sp,
+                            text = "Hãy nhập số điện thoại\ncủa bạn!",
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Left,
                             modifier = Modifier.fillMaxWidth()
@@ -235,7 +235,7 @@ fun PhoneAuthScreen(
                         
                         Text(
                             text = "Số của bạn sẽ chỉ được sử dụng trong những trường hợp khẩn cấp và sẽ không được chuyển tiếp cho bên thứ ba.",
-                            fontSize = 14.sp,
+                            fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -485,7 +485,7 @@ fun PhoneAuthScreen(
                         
                         Text(
                             text = "Bằng cách tiếp tục, bạn cho biết bạn đồng ý với điều khoản và Chính sách bảo mật.",
-                            fontSize = 12.sp,
+                            fontSize = 14.sp,
                             textAlign = TextAlign.Center,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

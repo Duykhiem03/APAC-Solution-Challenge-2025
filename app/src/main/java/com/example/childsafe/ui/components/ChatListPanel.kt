@@ -234,7 +234,7 @@ fun ChatListPanel(
                     ) {
                         Text(
                             text = "Trò chuyện",
-                            color = if (selectedTab == 0) Color.White else Color.Black
+                            color = Color.Black
                         )
                     }
                     

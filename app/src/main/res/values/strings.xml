@@ -57,6 +57,7 @@
     <string name="channel_important_name">Important Messages</string>
     <string name="channel_important_description">Messages that require your immediate attention</string>
     <string name="message">Message</string>
+    <string name="camera">Camera</string>
 
     <!-- Sos strings -->
     <string name="sos_active">SOS Active</string>

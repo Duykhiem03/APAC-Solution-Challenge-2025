@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -117,7 +118,7 @@ fun BottomNavigationButtons(
             modifier = Modifier
                 .size(AppDimensions.navigationButtonSize)
                 .clip(CircleShape)
-                .background(AppColors.Background)
+                .background(Color(0xFFBCE9FF))
                 .border(1.dp, AppColors.OnSecondary, CircleShape)
                 .clickable { onNavigateClick() },
             contentAlignment = Alignment.Center
@@ -125,7 +126,7 @@ fun BottomNavigationButtons(
             Icon(
                 imageVector = Icons.Filled.Navigation,
                 contentDescription = stringResource(R.string.navigate),
-                tint = AppColors.NavigateBlue
+                tint = Color.Black
             )
         }
     }

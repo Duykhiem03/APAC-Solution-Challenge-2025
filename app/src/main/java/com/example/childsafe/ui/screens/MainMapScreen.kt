@@ -528,7 +528,8 @@ fun MainMapScreen(
                     }
                 }
             }
-        )        // Bottom navigation buttons
+        )
+        // Bottom navigation buttons
         BottomNavigationButtons(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

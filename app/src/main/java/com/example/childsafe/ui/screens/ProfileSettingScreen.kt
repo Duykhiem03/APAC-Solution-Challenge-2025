@@ -91,7 +91,7 @@ fun ProfileSettingScreen(
         Text(
             text = "Vai trò của bạn",
             fontSize = 14.sp,
-            color = Color.Gray
+            color = Color.Black
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -128,7 +128,7 @@ fun ProfileSettingScreen(
         Text(
             text = "Màu sắc",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.align(Alignment.Start)
         )
 
@@ -150,7 +150,7 @@ fun ProfileSettingScreen(
             onClick = onComplete,
             border = BorderStroke(1.dp, Color.Black),
             modifier = Modifier
-                .fillMaxWidth()
+                .width(140.dp)
                 .height(48.dp),
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
@@ -160,7 +160,8 @@ fun ProfileSettingScreen(
             Text(
                 text = "Hoàn tất",
                 color = Color.Black,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
             )
         }
         
@@ -170,7 +171,7 @@ fun ProfileSettingScreen(
             onClick = { showSignOutDialog = true },
             border = BorderStroke(1.dp, Color.Red),
             modifier = Modifier
-                .fillMaxWidth()
+                .width(140.dp)
                 .height(48.dp),
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -179,7 +180,8 @@ fun ProfileSettingScreen(
         ) {
             Text(
                 text = "Đăng xuất",
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
             )
         }
         

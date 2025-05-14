@@ -16,16 +16,10 @@ import kotlin.random.Random
  */
 object SampleStepTrackingData {
     private val mockUsers = listOf(
-        Pair("user1", "Emma"),
-        Pair("user2", "James"),
-        Pair("user3", "Olivia"),
-        Pair("user4", "William"),
-        Pair("user5", "Sophia"),
-        Pair("user6", "Lucas"),
-        Pair("user7", "Mia"),
-        Pair("user8", "Henry"),
-        Pair("user9", "Ava"),
-        Pair("user10", "Noah")
+        Pair("user1", "Chị Hai"),
+        Pair("user2", "Bạn thân"),
+        Pair("user3", "Bố"),
+        Pair("user4", "Mẹ"),
     )
 
     private val mockPhotos = listOf(
@@ -132,7 +126,7 @@ object SampleStepTrackingData {
         // Add current user with actual steps
         val currentUser = LeaderboardEntry(
             userId = "current_user",
-            username = "Me",  // Display as "Me" in the leaderboard
+            username = "Bạn",  // Display as "Me" in the leaderboard
             steps = currentSteps,
             photoUrl = mockPhotos.firstOrNull()  // Give current user an avatar
         )

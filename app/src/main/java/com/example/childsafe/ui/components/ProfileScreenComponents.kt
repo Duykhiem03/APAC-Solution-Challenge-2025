@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -66,22 +67,6 @@ fun StudentIdCard(profile: StudentProfile, cardColor: Color) {
         colors = CardDefaults.cardColors(containerColor = cardColor) // light yellow background
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "THẺ HỌC SINH",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-
-            HorizontalDivider(
-                modifier = Modifier
-                    .padding(vertical = 8.dp)
-                    .height(1.dp)
-                    .fillMaxWidth(0.6f)
-                    .align(Alignment.CenterHorizontally),
-                color = Color.DarkGray,
-                thickness = 1.dp
-            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -90,9 +75,10 @@ fun StudentIdCard(profile: StudentProfile, cardColor: Color) {
                 // Profile image placeholder
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
-                        .border(1.dp, Color.Gray, CircleShape)
-                        .clip(CircleShape)
+                        .width(100.dp)
+                        .height(140.dp)
+                        .border(1.dp, Color.Gray, RectangleShape)
+                        .clip(RectangleShape)
                         .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
@@ -106,21 +92,45 @@ fun StudentIdCard(profile: StudentProfile, cardColor: Color) {
                 Spacer(modifier = Modifier.width(16.dp))
 
                 // Info columns
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column {
-                        Text("TÊN", fontSize = 12.sp)
-                        Text(profile.name, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("TRƯỜNG", fontSize = 12.sp)
-                        Text(profile.school, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "THẺ HỌC SINH",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
 
-                    Column {
-                        Text("NGÀY SINH", fontSize = 12.sp)
-                        Text(profile.birthdate, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("NĂM HỌC", fontSize = 12.sp)
-                        Text(profile.year, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .height(1.dp)
+                            .fillMaxWidth(0.6f)
+                            .align(Alignment.CenterHorizontally),
+                        color = Color.DarkGray,
+                        thickness = 1.dp
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("TÊN", fontSize = 12.sp)
+                            Text(profile.name, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("TRƯỜNG", fontSize = 12.sp)
+                            Text(profile.school, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Column {
+                            Text("NGÀY SINH", fontSize = 12.sp)
+                            Text(profile.birthdate, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("NĂM HỌC", fontSize = 12.sp)
+                            Text(profile.year, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -169,7 +179,7 @@ fun StudentProfileFormFields(
         Text(
             text = "Tên",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -183,7 +193,7 @@ fun StudentProfileFormFields(
         Text(
             text = "Ngày sinh",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -197,7 +207,7 @@ fun StudentProfileFormFields(
         Text(
             text = "Trường",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -211,7 +221,7 @@ fun StudentProfileFormFields(
         Text(
             text = "Niên học",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -233,7 +243,7 @@ fun ParentProfileFormFields(
         Text(
             text = "Tên",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -247,7 +257,7 @@ fun ParentProfileFormFields(
         Text(
             text = "Ngày sinh",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -261,7 +271,7 @@ fun ParentProfileFormFields(
         Text(
             text = "Con của bạn tên gì?",
             fontSize = 14.sp,
-            color = Color.Gray,
+            color = Color.Black,
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
         OutlinedTextField(
@@ -285,7 +295,7 @@ fun CharacterMonitorWithRoad(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 55.dp)
+                .padding(top = 100.dp)
                 .height(60.dp)
                 .background(Color(0xFF808080))
                 .align(Alignment.Center)
@@ -314,7 +324,7 @@ fun CharacterMonitorWithRoad(modifier: Modifier = Modifier) {
             painter = painterResource(id = R.drawable.walking_character),
             contentDescription = "Step Monitor Character",
             modifier = Modifier
-                .size(100.dp)
+                .size(150.dp)
                 .offset(y = (-8).dp) // Slight offset to place character properly on the road
         )
     }
