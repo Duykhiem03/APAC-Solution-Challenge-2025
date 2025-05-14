@@ -208,5 +208,19 @@ service cloud.firestore {
       // Users can only access their own chat metadata
       allow read, write: if isSignedIn() && userId == request.auth.uid;
     }
+    
+    // SOS Events collection
+    match /sosEvents/{eventId} {
+      // Allow read and write for any authenticated user for now
+      // In production, you'll want to restrict this further
+      allow read, write: if isSignedIn();
+    }
+    
+    // SOS Contacts collection
+    match /sosContacts/{userId} {
+      // Allow read and write for any authenticated user for now
+      // In production, you'll want to restrict this further
+      allow read, write: if isSignedIn();
+    }
   }
 }

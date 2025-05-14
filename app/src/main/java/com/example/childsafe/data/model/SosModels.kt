@@ -78,7 +78,8 @@ data class SosEvent(
     val resolvedAt: Timestamp? = null,
     val resolvedBy: String? = null,
     val notificationsSent: List<NotificationRecord> = emptyList(),
-    val contextData: SosContextData = SosContextData()
+    val contextData: SosContextData = SosContextData(),
+    val conversationIds: List<String>? = null // Conversation IDs that have received SOS messages
 )
 
 /**

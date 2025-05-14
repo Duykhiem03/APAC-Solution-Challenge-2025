@@ -7,9 +7,10 @@ import com.example.childsafe.data.model.SosContextData
 import com.example.childsafe.data.model.SosEvent
 import com.example.childsafe.data.model.SosLocation
 import com.example.childsafe.data.model.TriggerMethod
-
 import com.example.childsafe.domain.repository.LocationRepository
 import com.example.childsafe.domain.repository.SosRepository
+import com.example.childsafe.services.SosMonitoringService
+import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,7 +35,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SosViewModel @Inject constructor(
     private val sosRepository: SosRepository,
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    private val sosMonitoringService: SosMonitoringService
 ) : ViewModel() {
 
     // UI State for SOS functionality
@@ -198,6 +200,37 @@ class SosViewModel @Inject constructor(
     }
 
     /**
+     * Starts monitoring and sending continuous location updates for an active SOS event
+     * @param location Initial location of the SOS event
+     * @param conversationIds List of conversation IDs that received the initial SOS message
+     */
+    fun startSosMonitoring(location: LatLng, conversationIds: List<String>) {
+        val activeEvent = _uiState.value.activeSOSEvent ?: return
+        
+        // Update the SOS event with conversation IDs for later location updates
+        viewModelScope.launch {
+            try {
+                // Update the SOS event with conversation IDs
+                val updatedEvent = activeEvent.copy(
+                    conversationIds = conversationIds
+                )
+                
+                // Update in repository if possible
+                sosRepository.updateSosEvent(updatedEvent)
+                
+                // Start monitoring service for continuous location updates
+                sosMonitoringService.startMonitoring(updatedEvent)
+            } catch (e: Exception) {
+                // Even if updating in repository fails, we can still start monitoring
+                // with the conversation IDs we have
+                sosMonitoringService.startMonitoring(
+                    activeEvent.copy(conversationIds = conversationIds)
+                )
+            }
+        }
+    }
+
+    /**
      * Resolves the active SOS event
      * @param isFalseAlarm Whether the SOS was a false alarm
      */
@@ -208,6 +241,10 @@ class SosViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
+                // Stop the monitoring service first
+                sosMonitoringService.stopMonitoring()
+                
+                // Then resolve the SOS event in the repository
                 sosRepository.resolveSosEvent(
                     sosEventId = activeEvent.id,
                     isFalseAlarm = isFalseAlarm
@@ -233,6 +270,32 @@ class SosViewModel @Inject constructor(
      */
     fun hasEmergencyContacts(): Boolean {
         return _uiState.value.emergencyContacts.isNotEmpty()
+    }
+    
+    /**
+     * Updates the user's emergency contacts
+     * @param contacts New list of emergency contacts
+     */
+    fun updateEmergencyContacts(contacts: List<EmergencyContact>) {
+        viewModelScope.launch {
+            try {
+                val success = sosRepository.updateEmergencyContacts(contacts)
+                if (success) {
+                    _uiState.value = _uiState.value.copy(
+                        emergencyContacts = contacts,
+                        errorMessage = null
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = "Failed to update emergency contacts"
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Error updating emergency contacts: ${e.localizedMessage}"
+                )
+            }
+        }
     }
 
     /**

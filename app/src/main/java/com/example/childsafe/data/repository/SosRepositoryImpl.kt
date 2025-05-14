@@ -172,4 +172,59 @@ class SosRepositoryImpl @Inject constructor(
             false
         }
     }
+
+    /**
+     * Updates an existing SOS event
+     * @param sosEvent The updated SOS event
+     * @return Whether the operation was successful
+     */
+    override suspend fun updateSosEvent(sosEvent: SosEvent): Boolean {
+        return try {
+            // First verify that this is the user's own SOS event
+            val existingEventDoc = sosEventsCollection.document(sosEvent.id).get().await()
+            if (!existingEventDoc.exists()) {
+                return false
+            }
+            
+            val existingEvent = existingEventDoc.toObject(SosEvent::class.java)
+            if (existingEvent?.userId != currentUserId) {
+                return false
+            }
+            
+            // Update the SOS event
+            sosEventsCollection.document(sosEvent.id).set(sosEvent).await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    /**
+     * Updates the location of an active SOS event
+     * @param sosEventId ID of the SOS event
+     * @param location Updated location
+     * @return Whether the operation was successful
+     */
+    override suspend fun updateSosLocation(sosEventId: String, location: SosLocation): Boolean {
+        return try {
+            // First verify that this is the user's own SOS event
+            val existingEventDoc = sosEventsCollection.document(sosEventId).get().await()
+            if (!existingEventDoc.exists()) {
+                return false
+            }
+            
+            val existingEvent = existingEventDoc.toObject(SosEvent::class.java)
+            if (existingEvent?.userId != currentUserId) {
+                return false
+            }
+            
+            // Update only the location field
+            sosEventsCollection.document(sosEventId)
+                .update("location", location, "lastUpdated", FieldValue.serverTimestamp())
+                .await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

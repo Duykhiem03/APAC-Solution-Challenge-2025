@@ -142,6 +142,10 @@ class DebugChatRepository @Inject constructor(
         return MutableStateFlow(participants)
     }
 
+    override suspend fun getAllConversations(): List<Conversation> {
+        return debugMessagesRepository.debugConversations.value
+    }
+
     // Helper method to simulate going offline/online
     fun setOnlineStatus(isOnline: Boolean) {
         _isOnline.value = isOnline

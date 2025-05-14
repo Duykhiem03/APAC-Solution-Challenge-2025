@@ -740,10 +740,96 @@ fun MessageItem(
                     Text("Image message", color = textColor) // Placeholder
                 }
                 MessageType.LOCATION -> {
-                    Text("Location message", color = textColor) // Placeholder
+                    Column {
+                        Text(
+                            text = message.text,
+                            color = textColor
+                        )
+                        if (message.location != null) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            Button(
+                                onClick = {
+                                    // Open map with this location
+                                    val locationIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(
+                                            "geo:${message.location.latitude},${message.location.longitude}?q=${message.location.latitude},${message.location.longitude}"
+                                        )
+                                    )
+                                    context.startActivity(locationIntent)
+                                },
+                                modifier = Modifier.padding(top = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = "View Location",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("View Location")
+                            }
+                        }
+                    }
                 }
                 MessageType.AUDIO -> {
                     Text("Audio message", color = textColor) // Placeholder
+                }
+                MessageType.SOS -> {
+                    // Special styling for SOS messages
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "SOS Emergency",
+                                tint = Color.Red,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "SOS EMERGENCY",
+                                color = Color.Red,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = message.text,
+                            color = textColor
+                        )
+                        
+                        if (message.location != null) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            Button(
+                                onClick = {
+                                    // Open map with this location
+                                    val locationIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse(
+                                            "geo:${message.location.latitude},${message.location.longitude}?q=${message.location.latitude},${message.location.longitude}"
+                                        )
+                                    )
+                                    context.startActivity(locationIntent)
+                                },
+                                modifier = Modifier.padding(top = 8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = "View Emergency Location",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("View Emergency Location")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1307,6 +1393,8 @@ private fun PreviewMessageItem(message: Message) {
                 MessageType.AUDIO -> {
                     Text("Audio message", color = textColor)
                 }
+
+                MessageType.SOS -> TODO()
             }
         }
         

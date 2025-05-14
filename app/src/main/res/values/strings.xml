@@ -57,6 +57,13 @@
     <string name="channel_important_name">Important Messages</string>
     <string name="channel_important_description">Messages that require your immediate attention</string>
     <string name="message">Message</string>
+
+    <!-- Sos strings -->
+    <string name="sos_active">SOS Active</string>
+    <string name="sos_sharing_location">Sharing location</string>
+    <string name="sos_notification_channel_name">SOS Notifications</string>
+    <string name="sos_notification_channel_description">Notifications for active SOS events</string>
+    <string name="emergency_sos">Emergency SOS</string>"
     
     <!-- Walking Tracking strings -->
     <string name="walking_tracking">Walking Tracking</string>

@@ -115,7 +115,10 @@ enum class MessageType {
     LOCATION,
     
     @PropertyName("audio")
-    AUDIO
+    AUDIO,
+    
+    @PropertyName("sos")
+    SOS
 }
 
 /**

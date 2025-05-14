@@ -287,7 +287,7 @@ fun CharacterMonitorWithRoad(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(top = 55.dp)
                 .height(60.dp)
-                .background(Color(0xFFE0E0E0))
+                .background(Color(0xFF808080))
                 .align(Alignment.Center)
         ) {
             // Dotted line in the middle of the road

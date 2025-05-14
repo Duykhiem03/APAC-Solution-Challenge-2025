@@ -50,6 +50,8 @@ object MessageValidator {
                     }
                 }
             }
+
+            MessageType.SOS -> TODO()
         }
         
         return if (errors.isEmpty()) ValidationResult.success() 
@@ -113,6 +115,8 @@ object MessageValidator {
                         }
                     }
                 }
+
+                MessageType.SOS -> TODO()
             }
         } catch (e: IllegalArgumentException) {
             errors.add(ValidationResult.error("Invalid message type: ${message.messageType}", "messageType"))

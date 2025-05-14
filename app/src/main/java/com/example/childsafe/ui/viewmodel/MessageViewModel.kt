@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.childsafe.BuildConfig
 import com.example.childsafe.data.model.Conversation
+import com.example.childsafe.data.model.EmergencyContact
 import com.example.childsafe.data.model.Message
 import com.example.childsafe.data.model.MessageLocation
 import com.example.childsafe.data.model.MessageType
 import com.example.childsafe.data.repository.DebugMessagesRepository
 import com.example.childsafe.domain.repository.ChatRepository
+import com.example.childsafe.domain.repository.SosRepository
 import com.example.childsafe.domain.repository.StorageRepository
 import com.example.childsafe.test.SampleChatData
 import com.example.childsafe.utils.EventBusManager
@@ -45,6 +47,7 @@ import java.util.Date
 class MessageViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val storageRepository: StorageRepository,
+    private val sosRepository: SosRepository,
     private val debugMessagesRepository: DebugMessagesRepository,
     private val buildConfig: BuildConfigStrategy
 ) : ViewModel() {
@@ -790,4 +793,337 @@ class MessageViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * DEPRECATED: Use the newer implementation that targets only emergency contacts
+     * This should be triggered when the user clicks the SOS button
+     * @param location The current location of the user
+     * @return List of conversation IDs that received the SOS message
+     */
+    fun sendSOSMessageToAll(location: com.google.android.gms.maps.model.LatLng): List<String> {
+        val sentTo = mutableListOf<String>()
+        
+        if (buildConfig.isDebug) {
+            // In debug mode, get all conversations from the repository
+            val conversations = debugMessagesRepository.debugConversations.value
+            
+            conversations.forEach { conversation ->
+                // Create and add the SOS message to each conversation
+                val sosMessage = SampleChatData.createNewMessage(
+                    conversationId = conversation.id,
+                    text = "SOS EMERGENCY! I need help immediately!",
+                    sender = "current-user",
+                    type = MessageType.SOS
+                )
+                
+                // Add custom location data to the SOS message
+                val sosMessageWithLocation = sosMessage.copy(
+                    location = MessageLocation(
+                        latitude = location.latitude,
+                        longitude = location.longitude,
+                        locationName = "Current Location"
+                    )
+                )
+                
+                // Add message to debug messages
+                val messagesMap = debugMessagesRepository._debugMessages.value.toMutableMap()
+                val conversationMessages = messagesMap[conversation.id]?.toMutableList() ?: mutableListOf()
+                conversationMessages.add(sosMessageWithLocation)
+                messagesMap[conversation.id] = conversationMessages
+                debugMessagesRepository._debugMessages.value = messagesMap
+                
+                // Update conversation last message
+                val currentConversations = debugMessagesRepository._debugConversations.value.toMutableList()
+                val conversationIndex = currentConversations.indexOfFirst { it.id == conversation.id }
+                
+                if (conversationIndex >= 0) {
+                    val updatedConversation = currentConversations[conversationIndex]
+                    val lastMessage = com.example.childsafe.data.model.LastMessage(
+                        text = "SOS EMERGENCY! I need help immediately!",
+                        sender = "current-user",
+                        timestamp = com.google.firebase.Timestamp.now(),
+                        read = false
+                    )
+                    
+                    currentConversations[conversationIndex] = updatedConversation.copy(
+                        lastMessage = lastMessage
+                    )
+                    
+                    debugMessagesRepository._debugConversations.value = currentConversations
+                    sentTo.add(conversation.id)
+                    
+                    Timber.d("SOS message sent to conversation: ${conversation.id}")
+                }
+            }
+            
+            return sentTo
+        } else {
+            // Production implementation
+            viewModelScope.launch {
+                try {
+                    // Get all active conversations
+                    val conversations = chatRepository.getAllConversations()
+                    
+                    // Create message location from coordinates
+                    val messageLocation = MessageLocation(
+                        latitude = location.latitude, 
+                        longitude = location.longitude,
+                        locationName = "SOS Location"
+                    )
+                    
+                    // Send SOS message to each conversation
+                    conversations.forEach { conversation ->
+                        try {
+                            val messageId = chatRepository.sendMessage(
+                                conversationId = conversation.id,
+                                text = "SOS EMERGENCY! I need help immediately!",
+                                messageType = MessageType.SOS,
+                                mediaUrl = null,
+                                location = messageLocation
+                            )
+                            
+                            if (messageId.isNotEmpty()) {
+                                sentTo.add(conversation.id)
+                                Timber.d("SOS message sent to conversation: ${conversation.id}")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to send SOS message to conversation: ${conversation.id}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to send SOS messages: ${e.message}")
+                }
+            }
+            
+            return sentTo
+        }
+    }
+    
+    /**
+     * Sends an SOS location update to an active SOS conversation
+     * Should be called periodically to update location during an active SOS event
+     * @param conversationId ID of the conversation with an active SOS
+     * @param location The updated location
+     * @return Whether the update was sent successfully
+     */
+    fun updateSOSLocation(conversationId: String, location: com.google.android.gms.maps.model.LatLng): Boolean {
+        if (buildConfig.isDebug) {
+            // In debug mode, create and add a location update message
+            val locationUpdateMessage = SampleChatData.createNewMessage(
+                conversationId = conversationId,
+                text = "Location Update",
+                sender = "current-user",
+                type = MessageType.LOCATION
+            )
+            
+            // Add location data
+            val messageWithLocation = locationUpdateMessage.copy(
+                location = MessageLocation(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    locationName = "Updated Location"
+                )
+            )
+            
+            // Add message to debug messages
+            val messagesMap = debugMessagesRepository._debugMessages.value.toMutableMap()
+            val conversationMessages = messagesMap[conversationId]?.toMutableList() ?: mutableListOf()
+            conversationMessages.add(messageWithLocation)
+            messagesMap[conversationId] = conversationMessages
+            debugMessagesRepository._debugMessages.value = messagesMap
+            
+            Timber.d("SOS location update sent to conversation: $conversationId")
+            return true
+        } else {
+            // Production implementation
+            viewModelScope.launch {
+                try {
+                    // Create message location from coordinates
+                    val messageLocation = MessageLocation(
+                        latitude = location.latitude, 
+                        longitude = location.longitude,
+                        locationName = "Updated SOS Location"
+                    )
+                    
+                    // Send location update message
+                    chatRepository.sendMessage(
+                        conversationId = conversationId,
+                        text = "SOS Location Update",
+                        messageType = MessageType.LOCATION,
+                        mediaUrl = null,
+                        location = messageLocation
+                    )
+                    
+                    Timber.d("SOS location update sent to conversation: $conversationId")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to send SOS location update: ${e.message}")
+                    return@launch
+                }
+            }
+            
+            return true
+        }
+    }
+
+    /**
+     * Sends an SOS message to emergency contacts only
+     * @param location The current location to include in the SOS message
+     * @return List of conversation IDs that received the SOS message
+     */
+    fun sendSOSMessage(location: com.google.android.gms.maps.model.LatLng): List<String> {
+        val conversationIds = mutableListOf<String>()
+        
+        viewModelScope.launch {
+            try {
+                // Get emergency contacts from SOS repository
+                val contactsConfig = sosRepository.getSosContactsConfig()
+                val emergencyContacts = contactsConfig.contacts
+                
+                if (emergencyContacts.isEmpty()) {
+                    _uiState.update { it.copy(
+                        errorMessage = "No emergency contacts found to send SOS message"
+                    )}
+                    return@launch
+                }
+                
+                // Get the contact IDs to filter conversations
+                val emergencyContactIds = emergencyContacts.map { it.contactId }
+                
+                // Get all conversations for the current user
+                val allConversations = chatRepository.getAllConversations()
+                
+                // Filter conversations to only include those with emergency contacts
+                val emergencyConversations = allConversations.filter { conversation ->
+                    // For direct (non-group) conversations, check if the other participant is an emergency contact
+                    if (!conversation.isGroup && conversation.participants.size == 2) {
+                        // Get the ID of the other participant (not the current user)
+                        val currentUserId = chatRepository.getCurrentUserIdSync() ?: return@filter false
+                        val otherParticipantId = conversation.participants.find { it != currentUserId } ?: return@filter false
+                        
+                        // Check if this participant is in the emergency contacts list
+                        return@filter emergencyContactIds.contains(otherParticipantId)
+                    }
+                    // For group conversations, we could check if any emergency contact is in the group
+                    // But for simplicity and safety, we'll skip group conversations for now
+                    false
+                }
+                
+                if (emergencyConversations.isEmpty()) {
+                    _uiState.update { it.copy(
+                        errorMessage = "No conversations found with emergency contacts"
+                    )}
+                    return@launch
+                }
+                
+                // Convert location to MessageLocation format
+                val messageLocation = MessageLocation(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    locationName = "SOS Emergency Location"
+                )
+                
+                // Send SOS message to each emergency contact conversation
+                for (conversation in emergencyConversations) {
+                    try {
+                        val messageId = chatRepository.sendMessage(
+                            conversationId = conversation.id,
+                            text = "SOS EMERGENCY: I need immediate help! Tracking my location.",
+                            messageType = MessageType.SOS,
+                            location = messageLocation
+                        )
+                        
+                        if (messageId.isNotEmpty()) {
+                            conversationIds.add(conversation.id)
+                            
+                            // Get the contact name for logging
+                            val currentUserId = chatRepository.getCurrentUserIdSync() ?: ""
+                            val contactId = conversation.participants.find { it != currentUserId } ?: ""
+                            val contact = emergencyContacts.find { it.contactId == contactId }
+                            val contactName = contact?.name ?: contactId
+                            
+                            Timber.d("SOS message sent to emergency contact $contactName (conversation ${conversation.id})")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to send SOS message to conversation ${conversation.id}")
+                    }
+                }
+                
+                // Notify user about the result
+                if (conversationIds.isNotEmpty()) {
+                    _uiState.update { it.copy(
+                        errorMessage = null
+                    )}
+                    Timber.d("SOS messages sent to ${conversationIds.size} emergency contacts")
+                } else {
+                    _uiState.update { it.copy(
+                        errorMessage = "Failed to send SOS messages to any emergency contact"
+                    )}
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error sending SOS messages")
+                _uiState.update { it.copy(
+                    errorMessage = "Failed to send SOS messages: ${e.localizedMessage}"
+                )}
+            }
+        }
+        
+        return conversationIds
+    }
+    
+    /**
+     * Updates the location for active SOS events
+     * @param location The updated location
+     * @param conversationIds List of conversation IDs that have active SOS messages
+     */
+    fun updateSOSLocation(location: com.google.android.gms.maps.model.LatLng, conversationIds: List<String>) {
+        viewModelScope.launch {
+            try {
+                // Verify these are still emergency contact conversations
+                val contactsConfig = sosRepository.getSosContactsConfig()
+                val emergencyContactIds = contactsConfig.contacts.map { it.contactId }
+                
+                // Only update location for verified emergency contact conversations
+                val verifiedConversationIds = conversationIds.filter { conversationId ->
+                    try {
+                        val conversation = chatRepository.getConversation(conversationId) ?: return@filter false
+                        
+                        if (!conversation.isGroup && conversation.participants.size == 2) {
+                            val currentUserId = chatRepository.getCurrentUserIdSync() ?: return@filter false
+                            val otherParticipantId = conversation.participants.find { it != currentUserId } ?: return@filter false
+                            return@filter emergencyContactIds.contains(otherParticipantId)
+                        }
+                        false
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                
+                // Convert location to MessageLocation format
+                val messageLocation = MessageLocation(
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    locationName = "Updated SOS Location"
+                )
+                
+                // Send location update to each verified conversation
+                for (conversationId in verifiedConversationIds) {
+                    try {
+                        chatRepository.sendMessage(
+                            conversationId = conversationId,
+                            text = "SOS Location Update",
+                            messageType = MessageType.LOCATION,
+                            location = messageLocation
+                        )
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to update SOS location for conversation $conversationId: ${e.message}")
+                    }
+                }
+                
+                Timber.d("Updated SOS location for ${verifiedConversationIds.size} emergency contacts")
+            } catch (e: Exception) {
+                Timber.e(e, "Error updating SOS location: ${e.message}")
+            }
+        }
+    }
+
 }

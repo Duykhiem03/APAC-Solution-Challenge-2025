@@ -23,11 +23,11 @@ import javax.inject.Singleton
 class DebugMessagesRepository @Inject constructor() {
     
     // Store messages for each conversation in debug mode
-    private val _debugMessages = MutableStateFlow<MutableMap<String, MutableList<Message>>>(mutableMapOf())
+    val _debugMessages = MutableStateFlow<MutableMap<String, MutableList<Message>>>(mutableMapOf())
     val debugMessages: StateFlow<Map<String, List<Message>>> = _debugMessages.asStateFlow()
     
     // Debug conversations - Use a more robust approach with direct copy of sample data
-    private val _debugConversations = MutableStateFlow<List<Conversation>>(SampleChatData.testConversations)
+    val _debugConversations = MutableStateFlow<List<Conversation>>(SampleChatData.testConversations)
     val debugConversations: StateFlow<List<Conversation>> = _debugConversations
     
     init {

@@ -33,6 +33,12 @@ interface ChatRepository {
     suspend fun observeConversations(): Flow<List<Conversation>>
     
     /**
+     * Gets all conversations for the current user
+     * @return List of all conversations
+     */
+    suspend fun getAllConversations(): List<Conversation>
+    
+    /**
      * Gets a conversation by ID
      * @param conversationId ID of the conversation to retrieve
      * @return The conversation or null if not found
@@ -159,4 +165,5 @@ interface ChatRepository {
      * @return true if retry was successful, false otherwise
      */
     suspend fun retryMessage(messageId: String): Boolean
+
 }

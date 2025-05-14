@@ -69,4 +69,19 @@ interface SosRepository {
         sosEventId: String,
         notificationRecord: NotificationRecord
     ): Boolean
+
+    /**
+     * Updates an existing SOS event
+     * @param sosEvent The updated SOS event
+     * @return Whether the operation was successful
+     */
+    suspend fun updateSosEvent(sosEvent: SosEvent): Boolean
+    
+    /**
+     * Updates the location of an active SOS event
+     * @param sosEventId ID of the SOS event
+     * @param location Updated location
+     * @return Whether the operation was successful
+     */
+    suspend fun updateSosLocation(sosEventId: String, location: SosLocation): Boolean
 }

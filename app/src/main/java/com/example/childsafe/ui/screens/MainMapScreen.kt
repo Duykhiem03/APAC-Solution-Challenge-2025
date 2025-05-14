@@ -53,12 +53,15 @@ import com.example.childsafe.ui.components.BottomNavigationButtons
 import com.example.childsafe.ui.components.ChatListPanel
 import com.example.childsafe.ui.components.GPSIndicator
 import com.example.childsafe.ui.components.LocationSelectionPanel
+import com.example.childsafe.ui.components.SosStatusIndicator
 import com.example.childsafe.ui.navigation.NavigationViewModel
 import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.theme.AppDimensions
 import com.example.childsafe.ui.viewmodel.ChatViewModel
 import com.example.childsafe.ui.viewmodel.FriendsViewModel
 import com.example.childsafe.ui.viewmodel.LocationViewModel
+import com.example.childsafe.ui.viewmodel.MessageViewModel
+import com.example.childsafe.ui.viewmodel.SosViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
@@ -82,20 +85,38 @@ fun MainMapScreen(
     onWalkingTrackingClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onConversationSelected: (String) -> Unit = {},
-    onUserSearchClick: () -> Unit = {},
-    selectedDestination: Destination? = null,
+    onUserSearchClick: () -> Unit = {},    selectedDestination: Destination? = null,
     locationViewModel: LocationViewModel = hiltViewModel(),
     chatViewModel: ChatViewModel = hiltViewModel(),
     navigationViewModel: NavigationViewModel = hiltViewModel(),
-    friendsViewModel: FriendsViewModel = hiltViewModel()
-) {
-    // Get current location and city name from ViewModel
+    friendsViewModel: FriendsViewModel = hiltViewModel(),
+    messageViewModel: MessageViewModel = hiltViewModel(),
+    sosViewModel: SosViewModel = hiltViewModel()
+) {    // Get current location and city name from ViewModel
     val currentLocation by locationViewModel.currentLocation.collectAsState()
     val cityName by locationViewModel.currentCityName.collectAsState()
     val cameraPositionState = rememberCameraPositionState()
     val isRealLocation by locationViewModel.isRealLocation.collectAsState()
     // This will trigger UI updates when location changes
     val locationUpdateTrigger by locationViewModel.locationUpdateTrigger.collectAsState()
+    
+    // Get SOS state from SOS ViewModel
+    val sosUiState by sosViewModel.uiState.collectAsState()
+    // Calculate elapsed time since SOS activation
+    var sosElapsedTimeMs by remember { mutableStateOf(0L) }
+    
+    // Update elapsed time every second when SOS is active
+    LaunchedEffect(sosUiState.isSOSActive) {
+        if (sosUiState.isSOSActive) {
+            val startTime = System.currentTimeMillis()
+            while (true) {
+                sosElapsedTimeMs = System.currentTimeMillis() - startTime
+                delay(1000) // Update every second
+            }
+        } else {
+            sosElapsedTimeMs = 0
+        }
+    }
     
     // Navigation state
     val navigationState by navigationViewModel.uiState.collectAsState()
@@ -119,8 +140,7 @@ fun MainMapScreen(
     
     // Collect chat UI state
     val chatUiState by chatViewModel.uiState.collectAsState()
-    
-    // Track conversations as a derived value that we can debug
+      // Track conversations as a derived value that we can debug
     val conversations = chatUiState.conversations.also {
         if (it.isNotEmpty()) {
             Timber.d("MainMapScreen: chatUiState has ${it.size} conversations")
@@ -128,6 +148,11 @@ fun MainMapScreen(
     }
     val userChats = chatUiState.userChats
     val isLoadingChats = chatUiState.isLoading || isManuallyLoadingChats
+    
+    // SOS state
+    val isSosButtonPressed = sosUiState.isSosButtonPressed
+    val sosCountdown = sosUiState.sosCountdownSeconds
+    val isSOSActive = sosUiState.isSOSActive
       // Force initialization of ChatViewModel on startup to ensure it loads data
     LaunchedEffect(Unit) {
         Timber.d("MainMapScreen: Initial load of conversations")
@@ -207,13 +232,20 @@ fun MainMapScreen(
         Timber.d("MainMapScreen first display - requesting location")
         locationViewModel.getLastKnownLocation()
     }
-    
-    // Continuously request location updates every 10 seconds
+      // Continuously request location updates every 10 seconds
     LaunchedEffect(Unit) {
         while (true) {
             delay(10000) // 10 seconds
             Timber.d("Periodic location update request")
             locationViewModel.getLastKnownLocation()
+            
+            // If SOS is active, update location for SOS event
+            if (sosUiState.isSOSActive && sosUiState.activeSOSEvent != null && currentLocation != null) {
+                sosUiState.activeSOSEvent?.let { sosEvent ->
+                    // Update SOS location in active conversations
+                    messageViewModel.updateSOSLocation(sosEvent.id, currentLocation!!)
+                }
+            }
         }
     }
     
@@ -267,7 +299,6 @@ fun MainMapScreen(
             }
         }
     }
-
     Box(modifier = Modifier.fillMaxSize()) {
         // GoogleMap showing user location and destination if available
         GoogleMap(
@@ -331,9 +362,7 @@ fun MainMapScreen(
                 modifier = Modifier.align(Alignment.Center),
                 color = AppColors.Primary
             )
-        }
-
-        // City name overlay
+        }        // City name overlay
         Text(
             text = cityName,
             modifier = Modifier
@@ -409,7 +438,68 @@ fun MainMapScreen(
                 )
             }
         }
+        // SOS Countdown and status overlay (only shown when SOS button is pressed or active)
+        if (isSosButtonPressed || isSOSActive) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSosButtonPressed && !isSOSActive) {
+                    Card(
+                        modifier = Modifier
+                            .widthIn(max = 400.dp)
+                            .padding(16.dp),
+                        shape = MaterialTheme.shapes.medium,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = "SOS Emergency",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = AppColors.SosRed
+                            )
 
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "Sending in $sosCountdown seconds",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            TextButton(
+                                onClick = { sosViewModel.cancelSosButtonPress() },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = AppColors.Primary
+                                )
+                            ) {
+                                Text("CANCEL")
+                            }
+                        }
+                    }
+
+                } else {
+                    // SOS status indicator
+                    SosStatusIndicator(
+                        isActive = sosUiState.isSOSActive,
+                        elapsedTime = sosElapsedTimeMs,
+                        onCancelClick = {
+                            // Cancel SOS event
+                            sosViewModel.resolveSosEvent(false)
+                        }
+                    )
+                }
+            }
+        }
+            
         // GPS indicator moved to bottom right
         GPSIndicator(
             modifier = Modifier
@@ -443,7 +533,22 @@ fun MainMapScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = AppDimensions.spacingXLarge),
-            onSOSClick = onSOSClick,
+            onSOSClick = {
+                // Trigger SOS when the button is pressed
+                currentLocation?.let { location ->
+                    // 1. First initiate SOS in the SOS system
+                    sosViewModel.pressSosButton()
+                    
+                    // 2. Then send SOS messages through messaging system
+                    val conversationIds = messageViewModel.sendSOSMessage(location)
+                    
+                    // 3. Trigger SOS monitoring service in the SosViewModel
+                    sosViewModel.startSosMonitoring(location, conversationIds)
+                    
+                    // 4. Also call the navigation handler for any UI updates
+//                    onSOSClick()
+                }
+            },
             onNavigateClick = {
                 // Toggle location selection panel instead of navigating to a separate screen
                 showLocationPanel = !showLocationPanel
@@ -471,8 +576,7 @@ fun MainMapScreen(
                 )
             }
         }// Chat list panel (shows when user clicks on profile button)
-        if (showChatPanel) {
-            ChatListPanel(
+        if (showChatPanel) {            ChatListPanel(
                 modifier = Modifier
                     .align(Alignment.BottomCenter),
                 conversations = conversations,
@@ -488,6 +592,7 @@ fun MainMapScreen(
                     showChatPanel = false // Hide panel after clicking create new chat
                 },
                 friendsViewModel = friendsViewModel,
+                sosViewModel = sosViewModel,
                 onStartChatWithFriend = { friendId ->
                     Timber.d("MainMapScreen: Starting chat with friend ID: $friendId")
                     friendsViewModel.startChatWithFriend(friendId) { conversationId ->
@@ -674,4 +779,14 @@ private fun RouteInfoPanel(
             )
         }
     }
+}
+
+/**
+ * Format elapsed time in milliseconds to a readable string format (MM:SS)
+ */
+private fun formatElapsedTime(elapsedTimeMs: Long): String {
+    val totalSeconds = (elapsedTimeMs / 1000).toInt()
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return String.format("%02d:%02d", minutes, seconds)
 }

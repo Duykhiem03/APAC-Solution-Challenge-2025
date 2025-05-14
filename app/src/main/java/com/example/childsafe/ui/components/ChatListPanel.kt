@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import com.example.childsafe.BuildConfig
 import androidx.compose.runtime.*
@@ -38,6 +40,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,11 +49,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.childsafe.data.model.Conversation
+import com.example.childsafe.data.model.EmergencyContact
 import com.example.childsafe.data.model.FriendRequest
 import com.example.childsafe.data.model.UserChats
 import com.example.childsafe.data.model.UserProfile
 import com.example.childsafe.ui.theme.AppColors
 import com.example.childsafe.ui.viewmodel.FriendsViewModel
+import com.example.childsafe.ui.viewmodel.SosViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -77,6 +82,7 @@ fun ChatListPanel(
     isLoading: Boolean = false,
     onCreateNewChat: () -> Unit = {},
     friendsViewModel: FriendsViewModel? = null,
+    sosViewModel: SosViewModel? = null,
     onStartChatWithFriend: (String) -> Unit = {}
 ) {
     // Add debug logging to see what's happening
@@ -343,7 +349,8 @@ fun ChatListPanel(
                                         ConversationItem(
                                             conversation = conversation,
                                             unreadCount = userChats?.unreadCountForConversation(conversation.id) ?: 0,
-                                            onClick = { onConversationSelected(conversation.id) }
+                                            onClick = { onConversationSelected(conversation.id) },
+                                            sosViewModel = sosViewModel
                                         )
                                     }
                                 }
@@ -841,7 +848,8 @@ fun SampleContactItem(
 fun ConversationItem(
     conversation: Conversation,
     unreadCount: Int = 0,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    sosViewModel: SosViewModel? = null
 ) {
     // Log that we're rendering a conversation item
     LaunchedEffect(conversation.id) {
@@ -863,9 +871,19 @@ fun ConversationItem(
     val avatarInitial = displayName.firstOrNull()?.toString() ?: "?"
     
     // In debug mode, highlight test conversations
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val buildConfig = remember { com.example.childsafe.utils.BuildConfigHelper.getBuildConfigStrategy(context) }
     val displayDebugLabel = buildConfig.isDebug && conversation.id.startsWith("test-")
+    
+    // Dropdown menu state and handler
+    var showDropdown by remember { mutableStateOf(false) }
+    
+    // Get current emergency contacts to check if this conversation is already an emergency contact
+    val emergencyContacts = sosViewModel?.uiState?.collectAsState()?.value?.emergencyContacts ?: emptyList()
+    val isEmergencyContact = emergencyContacts.any { it.contactId == conversation.id }
+    
+    // Coroutine scope for launching suspend functions
+    val scope = rememberCoroutineScope()
     
     Row(
         modifier = Modifier
@@ -880,8 +898,12 @@ fun ConversationItem(
                 .size(48.dp)
                 .clip(CircleShape)
                 .background(
-                    // Use different color for debug conversations
-                    if (displayDebugLabel) AppColors.Primary else AppColors.AvatarRed
+                    // Different colors based on status
+                    when {
+                        isEmergencyContact -> AppColors.Primary.copy(alpha = 0.8f)
+                        displayDebugLabel -> AppColors.Primary
+                        else -> AppColors.AvatarRed
+                    }
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -914,6 +936,18 @@ fun ConversationItem(
                         modifier = Modifier.padding(start = 4.dp)
                     )
                 }
+                
+                // Show emergency contact indicator if applicable
+                if (isEmergencyContact) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Emergency Contact",
+                        tint = Color.Red,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .padding(start = 4.dp)
+                    )
+                }
             }
             
             Text(
@@ -925,9 +959,11 @@ fun ConversationItem(
             )
         }
         
+        // Unread count indicator
         if (unreadCount > 0) {
             Box(
                 modifier = Modifier
+                    .padding(horizontal = 4.dp)
                     .size(24.dp)
                     .clip(CircleShape)
                     .background(AppColors.UnreadBadgeRed),
@@ -937,6 +973,59 @@ fun ConversationItem(
                     text = unreadCount.toString(),
                     color = Color.White,
                     fontSize = 12.sp
+                )
+            }
+        }
+        
+        // Options menu (three dots)
+        Box {
+            IconButton(onClick = { showDropdown = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More Options"
+                )
+            }
+            
+            // Dropdown menu
+            DropdownMenu(
+                expanded = showDropdown,
+                onDismissRequest = { showDropdown = false }
+            ) {
+                // Toggle emergency contact status option
+                DropdownMenuItem(
+                    text = { 
+                        Text(
+                            text = if (isEmergencyContact) "Remove from Emergency Contacts" else "Add to Emergency Contacts"
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = if (isEmergencyContact) Color.Red else Color.Gray
+                        )
+                    },
+                    onClick = {
+                        sosViewModel?.let { viewModel ->
+                            scope.launch {
+                                if (isEmergencyContact) {
+                                    // Remove from emergency contacts
+                                    val updatedContacts = emergencyContacts.filter { it.contactId != conversation.id }
+                                    viewModel.updateEmergencyContacts(updatedContacts)
+                                } else {
+                                    // Add as emergency contact
+                                    val newContact = EmergencyContact(
+                                        contactId = conversation.id,
+                                        name = displayName,
+                                        relationship = if (conversation.isGroup) "Group" else "Friend"
+                                    )
+                                    val updatedContacts = emergencyContacts + newContact
+                                    viewModel.updateEmergencyContacts(updatedContacts)
+                                }
+                            }
+                        }
+                        showDropdown = false
+                    }
                 )
             }
         }

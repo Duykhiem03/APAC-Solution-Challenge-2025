@@ -19,6 +19,7 @@ import com.example.childsafe.concurrency.ConflictResolutionService
 import com.example.childsafe.concurrency.DocumentVersioningService
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -1539,5 +1540,48 @@ class ChatRepositoryImpl @Inject constructor(
             Timber.e(e, "Error retrying message $messageId")
             false
         }
+    }
+
+    /**
+     * Gets all conversations for the current user
+     */
+    override suspend fun getAllConversations(): List<Conversation> {
+        val currentUserId = getCurrentUserId()
+        if (currentUserId == null) {
+            Timber.e("Failed to get conversations: User not logged in")
+            throw IllegalStateException("User not logged in")
+        }
+        
+        // Get user chats to find conversation IDs
+        val userChatsDoc = userChatsCollection.document(currentUserId).get().await()
+        if (!userChatsDoc.exists()) {
+            return emptyList()
+        }
+        
+        val userChats = userChatsDoc.toObject(UserChats::class.java) ?: return emptyList()
+        val conversationIds = userChats.conversations.map { it.conversationId }
+        
+        if (conversationIds.isEmpty()) {
+            return emptyList()
+        }
+        
+        // Get conversations in batches to avoid Firestore limitations
+        val result = mutableListOf<Conversation>()
+        val batchSize = 10 // Firestore allows up to 10 values in 'in' queries
+        
+        for (i in conversationIds.indices step batchSize) {
+            val batchIds = conversationIds.subList(i, minOf(i + batchSize, conversationIds.size))
+            
+            val batchResult = conversationsCollection
+                .whereIn(FieldPath.documentId(), batchIds)
+                .get()
+                .await()
+                
+            result.addAll(batchResult.documents.mapNotNull { document ->
+                document.toObject(Conversation::class.java)?.copy(id = document.id)
+            })
+        }
+        
+        return result
     }
 }
