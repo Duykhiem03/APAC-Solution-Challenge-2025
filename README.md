@@ -1,20 +1,57 @@
 # ChildSafe
 
 ## Project Overview
-ChildSafe is a comprehensive mobile application developed for the Google Developer Groups Open Class Hackathon Vietnam 2025. The application aims to ensure children's safety during their daily commutes by providing secure navigation that prioritizes child-friendly routes.
+ChildSafe is a comprehensive mobile application developed for APAC Solution Challenge 2025. The application aims to ensure children's safety during their daily commutes by providing secure navigation that prioritizes child-friendly routes.
 
 ## Current Implementation
 
-### 🧭 Safe Navigation Feature
-Our current implementation focuses on the Safe Navigation feature:
+### Key Features
 
+#### 📍 Real-time GPS Tracking
+- Precise location monitoring with Google's Fused Location Provider
+- Live location sharing with trusted contacts
+- Location history visualization for parents
+- Battery-efficient background tracking
+- GPS signal quality indicator
+
+#### 🚨 SOS Emergency System
+- One-tap SOS button for immediate help
+- Voice-activated emergency triggers
+- Automatic notifications to trusted contacts with location data
+- Continuous location updates during emergencies
+- Simple cancellation for false alarms
+
+#### 🧭 Safe Navigation
 - Intelligent route planning that prioritizes child-friendly paths
 - Avoidance of high-crime areas and unsafe zones
 - Time-based route recommendations (safer routes during daytime)
 - Integration with Google Maps for reliable navigation
 - Customizable safety parameters for different age groups
 
-#### How It Works
+#### 👪 Trusted Contacts Integration
+- Easy setup of family members and trusted adults
+- Customizable notification preferences per contact
+- Emergency contact prioritization
+- Real-time messaging with trusted contacts
+- Status updates for emergency acknowledgment
+
+#### 🚶‍♀️ Health Monitoring
+- Step counting with daily goals
+- Weekly progress tracking
+- Social leaderboards for friendly competition
+- Activity duration monitoring
+- Character-based walking visualization
+
+#### 🤖 AI-Powered Safety
+- Abnormal movement detection using sensor fusion
+- Route safety analysis with Google's Gemini 2.0 Flash model
+- Behavioral pattern recognition
+- Contextual safety alerts
+- Child-friendly navigation instructions
+
+### How It Works
+
+#### Safe Navigation System
 1. The app analyzes multiple potential routes between start and destination points
 2. Each route is scored based on safety metrics (crime data, traffic patterns, time of day)
 3. Routes passing through designated safe zones receive higher scores
@@ -28,6 +65,14 @@ Our route safety analysis is powered by Google's Gemini 2.0 Flash model, which:
 - Provides natural language explanations of safety considerations for each route
 - Adapts safety recommendations based on time of day and current conditions
 - Generates child-friendly navigation instructions that are easy to understand
+
+#### Abnormal Movement Detection
+The application uses sensor fusion (accelerometer, gyroscope, and GPS) to detect:
+- Sudden changes in movement patterns
+- Unusual speeds or accelerations
+- Potential falls or accidents
+- Deviations from expected routes
+- Long periods of inactivity in unusual locations
 
 ## Technology Stack
 
@@ -99,19 +144,26 @@ ai_microservice/              # Python-based AI service
 
 ## Future Roadmap
 
-### 📍 Location Tracking
-- Real-time location sharing with trusted contacts
-- Geofencing alerts when children enter or leave designated safe zones
-- Historical route data for parents to review
+### 🔍 Enhanced Geofencing
+- Custom-shaped safe and unsafe zones
+- Time-based geofence rules (school hours, curfew)
+- Advanced alert customization
+- Geofence sharing between trusted users
+- Location prediction to prevent boundary crossings
 
-### 👪 Trusted Contacts
-- Easy setup of family members and other trusted adults
-- Emergency notification system
-- One-tap SOS alerts with location data
+### 💬 Advanced Communication
+- In-app voice and video calls during emergencies
+- Automated voice responses for children who need assistance
+- Integration with school emergency systems
+- Multi-language support for international families
+- Audio recording during emergencies (with privacy controls)
 
-### 🤖 Enhanced AI Safety Features
-- Behavioral pattern recognition to detect unusual movements
-- Predictive safety alerts
+### 🤖 Next-Gen AI Features
+- Predictive route safety analysis
+- Crowd behavior assessment
+- Voice tone analysis for distress detection
+- Computer vision for environmental hazards
+- Personalized safety recommendations
 
 ## Getting Started
 
@@ -159,8 +211,10 @@ ai_microservice/              # Python-based AI service
 MIT License
 
 ## Acknowledgments
-- Google Developer Groups for organizing the Open Class Hackathon Vietnam 2025
+- Google Developer Groups for organizing the APAC Solution Challenge 2025
 - The open-source community for the various libraries used
 
 ## Team
-Team ChildSafe - GDGOC Hackathon Vietnam 2025
+Truong Thi Nhat Linh - Business Analyst
+Nguyen Hoang Thanh Ngan - UI/UX Designer
+Pham Duy Khiem - Developer
